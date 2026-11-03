@@ -31,7 +31,7 @@ export default async function JobFoldersPage({ params, searchParams }: { params:
 
   return (
     <>
-      <Breadcrumbs items={[{ label: "Case files", href: "/admin/case-files" }, { label: job.title }]} />
+      <Breadcrumbs items={[{ label: "Case files", href: "/admin/case-files" }, { label: data.caseFile.displayId }]} />
       <PageHeader
         title={job.title}
         description={

@@ -5,7 +5,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination } from "@/components/shared/pagination";
+import { Pagination, redirectPastLastPage } from "@/components/shared/pagination";
 import { CandidateTable } from "@/components/candidates/candidate-table";
 import { DEFAULT_PAGE_SIZE, param, parsePage, type SearchParams } from "@/lib/pagination";
 import { requireStaff } from "@/modules/access-control/context";
@@ -22,6 +22,7 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
   const q = param(params, "q")?.slice(0, 100);
   const { total, candidates } = await listInternalCandidates(q, page);
 
+  redirectPastLastPage("/admin/candidates", params, page, DEFAULT_PAGE_SIZE, total);
   return (
     <>
       <PageHeader

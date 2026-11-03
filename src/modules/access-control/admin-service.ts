@@ -87,6 +87,7 @@ export async function updateStaffUser(
   const roles = await validateRoleAssignment(ctx, input.roleIds);
   const remainsSuperAdmin = roles.some((r) => r.key === SYSTEM_ROLE_KEYS.SUPER_ADMIN);
   if (isSuperAdmin && !remainsSuperAdmin) {
+    if (target.id === ctx.user.id) throw new AppError("You can't remove the Super Admin role from your own account. Ask another Super Admin to do it.");
     if (!ctx.isSuperAdmin) throw new ForbiddenError("Only a Super Admin can remove the Super Admin role.");
     if (target.isActive && (await countOtherActiveSuperAdmins(target.id)) === 0) {
       throw new AppError("At least one active Super Admin is required.");

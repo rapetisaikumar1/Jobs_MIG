@@ -1,4 +1,5 @@
 import "server-only";
+import { openDeadlineCutoff } from "@/lib/format";
 import type { JobStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { AppError, ForbiddenError } from "@/lib/action-result";
@@ -100,6 +101,9 @@ export async function changeJobStatus(ctx: StaffContext, jobId: string, action: 
     const job = await tx.job.findUniqueOrThrow({ where: { id: jobId } });
     if (!rule.from.includes(job.status)) throw new AppError(`A ${job.status.toLowerCase()} job cannot be changed this way.`);
     const now = new Date();
+    if (rule.to === "PUBLISHED" && job.applicationDeadline && job.applicationDeadline < openDeadlineCutoff(now)) {
+      throw new AppError("The application deadline has passed. Edit the job and set a future deadline (or clear it) before publishing.");
+    }
     const updated = await tx.job.update({
       where: { id: jobId },
       data: {

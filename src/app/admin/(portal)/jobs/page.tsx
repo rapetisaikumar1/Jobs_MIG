@@ -7,7 +7,7 @@ import { Checkbox, Input, Select } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination } from "@/components/shared/pagination";
+import { Pagination, redirectPastLastPage } from "@/components/shared/pagination";
 import { JobStatusBadge } from "@/components/shared/status-badges";
 import { JOB_STATUS_LABELS, toOptions } from "@/config/options";
 import { formatDate, fullName } from "@/lib/format";
@@ -29,6 +29,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
   const filters = { q: param(params, "q"), status, mine: param(params, "mine") === "1" };
   const [{ total, jobs }, tz] = await Promise.all([listAdminJobs(ctx, filters, page), getViewerTimeZone()]);
 
+  redirectPastLastPage("/admin/jobs", params, page, DEFAULT_PAGE_SIZE, total);
   return (
     <>
       <PageHeader

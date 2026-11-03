@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,12 @@ function hrefFor(basePath: string, params: SearchParams, page: number) {
   if (page > 1) usp.set("page", String(page));
   const qs = usp.toString();
   return qs ? `${basePath}?${qs}` : basePath;
+}
+
+/** Sends an out-of-range ?page= (e.g. page 99 of 2) to the last page that has results. */
+export function redirectPastLastPage(basePath: string, params: SearchParams, page: number, pageSize: number, total: number) {
+  const pages = Math.ceil(total / pageSize);
+  if (total > 0 && page > pages) redirect(hrefFor(basePath, params, pages));
 }
 
 export function Pagination({

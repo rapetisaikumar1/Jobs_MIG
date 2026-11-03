@@ -122,6 +122,13 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     expect(jobs[0]).not.toHaveProperty("internalNotes");
   });
 
+  it("refuses to publish a job whose application deadline has passed", async () => {
+    const job = await createJob(admin, jobInput({ title: "Expired Deadline" }));
+    await prisma.job.update({ where: { id: job.id }, data: { applicationDeadline: new Date("2020-01-01") } });
+    await expect(changeJobStatus(admin, job.id, "publish")).rejects.toThrow("deadline has passed");
+    expect((await prisma.job.findUniqueOrThrow({ where: { id: job.id } })).status).toBe("DRAFT");
+  });
+
   it("generates unique IDs and one case file per job under concurrency", async () => {
     const created = await Promise.all(Array.from({ length: 15 }, (_, i) => createJob(admin, jobInput({ title: `Concurrent ${i}` }))));
     expect(new Set(created.map((j) => j.displayId)).size).toBe(15);

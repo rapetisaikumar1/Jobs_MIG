@@ -30,6 +30,8 @@ export function AddCandidateToJobForm({
   defaults: { relevantExperienceYears: string; availability: string; workAuthorizationResponse: string; assignedRecruiterId: string };
 }) {
   const router = useRouter();
+  // Keep the submit button busy until the destination page has loaded.
+  const [navigating, startNavigation] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
   const [upload, setUpload] = React.useState<UploadedFile | null>(null);
   const form = useForm<AddCandidateToJobFormValues>({
@@ -58,7 +60,7 @@ export function AddCandidateToJobForm({
     if (!result.ok) {
       setError(result.error);
       applyServerErrors(result, setFieldError);
-    } else router.push(`/admin/applications/${result.data.displayId}?notice=created`);
+    } else startNavigation(() => router.push(`/admin/applications/${result.data.displayId}?notice=created`));
   });
 
   return (
@@ -128,7 +130,7 @@ export function AddCandidateToJobForm({
         <Textarea id="note" rows={2} {...register("note")} />
       </Field>
       <div className="flex justify-end">
-        <Button type="submit" disabled={formState.isSubmitting}>{formState.isSubmitting ? "Adding…" : "Add to job"}</Button>
+        <Button type="submit" disabled={formState.isSubmitting || navigating}>{formState.isSubmitting || navigating ? "Adding…" : "Add to job"}</Button>
       </div>
     </form>
   );

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination } from "@/components/shared/pagination";
+import { Pagination, redirectPastLastPage } from "@/components/shared/pagination";
 import { param, parsePage, type SearchParams } from "@/lib/pagination";
 import { requireStaff } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
@@ -24,6 +24,7 @@ export default async function CaseFilesPage({ searchParams }: { searchParams: Pr
   const q = param(params, "q")?.slice(0, 100);
   const { total, caseFiles } = await listCaseFiles(ctx, q, page, PAGE_SIZE);
 
+  redirectPastLastPage("/admin/case-files", params, page, PAGE_SIZE, total);
   return (
     <>
       <PageHeader

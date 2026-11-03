@@ -37,12 +37,15 @@ export function JobForm({
   meta?: { displayId: string; createdBy: string; createdAt: string; publishedAt: string; status: string };
 }) {
   const router = useRouter();
+  // Keep the submit button busy until the destination page has loaded.
+  const [navigating, startNavigation] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
   const form = useForm<JobFormValues>({ resolver: zodResolver(jobSchema), defaultValues });
   const { register, control, watch, handleSubmit, formState, setError: setFieldError, setValue } = form;
   const e = formState.errors;
   const country = watch("country");
 
+  // Selects also get defaultValue so the server-rendered choice matches what will be saved.
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
     const result = jobId ? await updateJobAction(jobId, values) : await createJobAction(values);
@@ -50,7 +53,7 @@ export function JobForm({
       setError(result.error);
       applyServerErrors(result, setFieldError);
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } else router.push(`/admin/jobs/${result.data.displayId}?notice=${jobId ? "updated" : "created"}`);
+    } else startNavigation(() => router.push(`/admin/jobs/${result.data.displayId}?notice=${jobId ? "updated" : "created"}`));
   });
 
   const options = (items: { value: string; label: string }[]) => items.map((o) => <option key={o.value} value={o.value}>{o.label}</option>);
@@ -92,25 +95,25 @@ export function JobForm({
 
       <FormSection title="Employment details">
         <Field id="country" label="Country" required error={e.country?.message}>
-          <Select id="country" {...register("country", { onChange: () => setValue("state", "") })}>
+          <Select id="country" defaultValue={defaultValues.country} {...register("country", { onChange: () => setValue("state", "") })}>
             <option value="US">United States</option>
             <option value="CA">Canada</option>
           </Select>
         </Field>
         <Field id="state" label="State / Province" required error={e.state?.message}>
-          <RegionSelect id="state" country={country} invalid={!!e.state} {...register("state")} />
+          <RegionSelect id="state" defaultValue={defaultValues.state} country={country} invalid={!!e.state} {...register("state")} />
         </Field>
         <Field id="city" label="City" required error={e.city?.message}>
           <Input id="city" {...register("city")} />
         </Field>
         <Field id="workArrangement" label="Work arrangement" required error={e.workArrangement?.message}>
-          <Select id="workArrangement" {...register("workArrangement")}>{options(toOptions(WORK_ARRANGEMENT_LABELS))}</Select>
+          <Select id="workArrangement" defaultValue={defaultValues.workArrangement} {...register("workArrangement")}>{options(toOptions(WORK_ARRANGEMENT_LABELS))}</Select>
         </Field>
         <Field id="employmentType" label="Employment type" required error={e.employmentType?.message}>
-          <Select id="employmentType" {...register("employmentType")}>{options(toOptions(EMPLOYMENT_TYPE_LABELS))}</Select>
+          <Select id="employmentType" defaultValue={defaultValues.employmentType} {...register("employmentType")}>{options(toOptions(EMPLOYMENT_TYPE_LABELS))}</Select>
         </Field>
         <Field id="compensationType" label="Pay type" required error={e.compensationType?.message}>
-          <Select id="compensationType" {...register("compensationType")}>{options(toOptions(COMPENSATION_TYPE_LABELS))}</Select>
+          <Select id="compensationType" defaultValue={defaultValues.compensationType} {...register("compensationType")}>{options(toOptions(COMPENSATION_TYPE_LABELS))}</Select>
         </Field>
         <Field id="compensationMin" label="Salary / rate minimum" error={e.compensationMin?.message}>
           <Input id="compensationMin" type="number" min={0} step="any" {...register("compensationMin")} />
@@ -119,7 +122,7 @@ export function JobForm({
           <Input id="compensationMax" type="number" min={0} step="any" {...register("compensationMax")} />
         </Field>
         <Field id="currency" label="Currency" required error={e.currency?.message}>
-          <Select id="currency" {...register("currency")}>{options(toOptions(CURRENCY_LABELS))}</Select>
+          <Select id="currency" defaultValue={defaultValues.currency} {...register("currency")}>{options(toOptions(CURRENCY_LABELS))}</Select>
         </Field>
         <Field id="applicationDeadline" label="Application deadline" error={e.applicationDeadline?.message} hint="Inclusive. Leave empty for open until filled.">
           <Input id="applicationDeadline" type="date" {...register("applicationDeadline")} />
@@ -135,7 +138,7 @@ export function JobForm({
 
       <FormSection title="Internal information" description="Never shown on the public portal.">
         <Field id="assignedRecruiterId" label="Assigned recruiter" hint="Recruiters can see jobs they created or are assigned to." error={e.assignedRecruiterId?.message}>
-          <Select id="assignedRecruiterId" {...register("assignedRecruiterId")}>
+          <Select id="assignedRecruiterId" defaultValue={(defaultValues.assignedRecruiterId as string | undefined) ?? ""} {...register("assignedRecruiterId")}>
             <option value="">Unassigned</option>
             {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
@@ -158,8 +161,8 @@ export function JobForm({
 
       <div className="flex justify-end gap-2 border-t pt-6">
         <Button variant="outline" onClick={() => router.back()}>Cancel</Button>
-        <Button type="submit" disabled={formState.isSubmitting}>
-          {formState.isSubmitting ? "Saving…" : jobId ? "Save changes" : "Create job"}
+        <Button type="submit" disabled={formState.isSubmitting || navigating}>
+          {formState.isSubmitting || navigating ? "Saving…" : jobId ? "Save changes" : "Create job"}
         </Button>
       </div>
     </form>

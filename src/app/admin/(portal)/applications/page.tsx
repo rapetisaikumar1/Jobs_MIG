@@ -8,7 +8,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Avatar } from "@/components/shared/avatar";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination } from "@/components/shared/pagination";
+import { Pagination, redirectPastLastPage } from "@/components/shared/pagination";
 import { ApplicationStatusBadge } from "@/components/shared/status-badges";
 import { APPLICATION_STATUS_LABELS, SOURCE_LABELS, toOptions } from "@/config/options";
 import { formatDate, fullName } from "@/lib/format";
@@ -37,6 +37,7 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
   const [{ total, rows }, tz] = await Promise.all([listApplications(ctx, filters, page), getViewerTimeZone()]);
   const canViewCaseFiles = ctx.can(PERMISSIONS.CASE_FILE_VIEW);
 
+  redirectPastLastPage("/admin/applications", params, page, DEFAULT_PAGE_SIZE, total);
   return (
     <>
       <PageHeader title="Applications" description="All submitted applications for jobs you can access." />

@@ -75,6 +75,8 @@ export function CandidateProfileForm({
   skillSuggestions?: string[];
 }) {
   const router = useRouter();
+  // Keep the submit button busy until the destination page has loaded.
+  const [navigating, startNavigation] = React.useTransition();
   const isStaff = mode !== "self";
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
@@ -111,7 +113,7 @@ export function CandidateProfileForm({
       if (!result.ok) {
         setError(result.error);
         applyServerErrors(result, setFieldError);
-      } else router.push(`/admin/candidates/${candidateDisplayId}?notice=updated`);
+      } else startNavigation(() => router.push(`/admin/candidates/${candidateDisplayId}?notice=updated`));
       return;
     }
     const result = await createCandidateAction(values);
@@ -120,8 +122,12 @@ export function CandidateProfileForm({
       applyServerErrors(result, setFieldError);
     } else if (result.data.status === "needs-confirmation") {
       setDuplicates(result.data.matches);
+      setError("Possible duplicate found. Review the matching records below and tick the confirmation box to create this candidate.");
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } else router.push(`/admin/candidates/${result.data.displayId}?notice=created`);
+    } else {
+      const { displayId } = result.data;
+      startNavigation(() => router.push(`/admin/candidates/${displayId}?notice=created`));
+    }
   });
 
   const tagField = (name: keyof StaffCandidateFormValues, label: string, hint?: string, suggestions?: string[]) => (
@@ -140,7 +146,7 @@ export function CandidateProfileForm({
     <form onSubmit={onSubmit} className="space-y-8" noValidate>
       <FormAlert error={error} success={success} />
       {duplicates && (
-        <Alert variant="info">
+        <Alert variant="error">
           <p className="font-medium">Possible duplicate candidates found</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {duplicates.map((d) => (
@@ -305,8 +311,8 @@ export function CandidateProfileForm({
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={formState.isSubmitting}>
-          {formState.isSubmitting ? "Saving…" : mode === "staff-create" ? "Create candidate" : "Save profile"}
+        <Button type="submit" disabled={formState.isSubmitting || navigating}>
+          {formState.isSubmitting || navigating ? "Saving…" : mode === "staff-create" ? "Create candidate" : "Save profile"}
         </Button>
       </div>
     </form>

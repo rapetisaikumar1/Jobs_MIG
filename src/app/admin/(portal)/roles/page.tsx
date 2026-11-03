@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
+import { redirect } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
+import { param, type SearchParams } from "@/lib/pagination";
 import { Badge } from "@/components/ui/badge";
 import { ActionButton } from "@/components/forms/action-button";
 import { deleteRoleAction } from "@/modules/access-control/actions";
@@ -13,13 +16,23 @@ import { ALL_PERMISSIONS, PERMISSIONS } from "@/modules/access-control/permissio
 
 export const metadata: Metadata = { title: "Roles" };
 
-export default async function RolesPage() {
+export default async function RolesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const ctx = await requireStaff(PERMISSIONS.ROLE_MANAGE);
   const canDelete = ctx.can(PERMISSIONS.ROLE_DELETE);
   const roles = await prisma.role.findMany({
     orderBy: [{ isSystem: "desc" }, { name: "asc" }],
     include: { _count: { select: { users: true, permissions: true } } },
   });
+  const notice = param(await searchParams, "notice");
+
+  async function remove(roleId: string) {
+    "use server";
+    const result = await deleteRoleAction({ roleId });
+    // The deleted row disappears, so confirm on the list itself.
+    if (result.ok) redirect("/admin/roles?notice=deleted");
+    return result;
+  }
+
   return (
     <>
       <PageHeader
@@ -27,6 +40,7 @@ export default async function RolesPage() {
         description="A role is a set of permissions. Every staff user has one or more roles."
         actions={<Link href="/admin/roles/new" className={buttonVariants()}>New role</Link>}
       />
+      {notice === "deleted" && <Alert variant="success" className="mb-4">Role deleted.</Alert>}
       <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
         <Table>
           <THead><TR><TH>Role</TH><TH>Permissions</TH><TH>Users</TH>{canDelete && <TH className="text-right">Actions</TH>}</TR></THead>
@@ -51,7 +65,7 @@ export default async function RolesPage() {
                         disabled={r._count.users > 0}
                         title={r._count.users > 0 ? `Assigned to ${r._count.users} user(s) — remove it from them first` : `Delete ${r.name}`}
                         confirm={`Delete the “${r.name}” role? This cannot be undone.`}
-                        action={deleteRoleAction.bind(null, { roleId: r.id })}
+                        action={remove.bind(null, r.id)}
                       >
                         <Trash2 aria-hidden /> Delete
                       </ActionButton>

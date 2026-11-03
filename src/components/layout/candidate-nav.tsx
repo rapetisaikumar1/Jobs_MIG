@@ -29,3 +29,11 @@ export function CandidateNav() {
     </nav>
   );
 }
+
+/** Portal heading: a greeting on the dashboard, the section name elsewhere. */
+export function CandidateHeading({ firstName }: { firstName: string }) {
+  const pathname = usePathname();
+  const section = LINKS.find((l) => l.href !== "/candidate/dashboard" && pathname.startsWith(l.href));
+  const title = section ? (section.href === "/candidate/profile" ? "My profile" : section.label) : `Welcome back, ${firstName}`;
+  return <h1 className="text-xl font-semibold tracking-tight">{title}</h1>;
+}

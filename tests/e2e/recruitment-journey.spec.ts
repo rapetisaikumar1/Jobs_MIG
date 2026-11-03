@@ -59,7 +59,8 @@ test("candidate applies with a resume, sees it tracked, cannot apply twice or op
   await page.getByRole("link", { name: "Apply Now" }).first().click();
   await page.getByLabel("Upload a different resume").check();
   await page.setInputFiles("#resume", path.join(__dirname, "fixtures/resume.pdf"));
-  await expect(page.getByText("resume.pdf", { exact: true })).toBeVisible();
+  // Wait for the upload itself to finish (the saved default resume may share the name).
+  await expect(page.getByRole("button", { name: "Remove file" })).toBeVisible();
   await page.fill("#availability", "Two weeks");
   await page.getByRole("button", { name: "Review application" }).click();
   await page.getByText(/I confirm the information/).click();

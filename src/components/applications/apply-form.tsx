@@ -31,6 +31,8 @@ export function ApplyForm({
   defaults: { relevantExperienceYears?: number; availability?: string; workAuthorizationResponse?: string };
 }) {
   const router = useRouter();
+  // Keep the submit button busy until the destination page has loaded.
+  const [navigating, startNavigation] = React.useTransition();
   const [step, setStep] = React.useState<"edit" | "review">("edit");
   const [error, setError] = React.useState<string | null>(null);
   const [resumeFile, setResumeFile] = React.useState<UploadedFile | null>(null);
@@ -97,7 +99,7 @@ export function ApplyForm({
       if (result.fieldErrors) setStep("edit");
       return;
     }
-    router.push(`/candidate/applications/${result.data.displayId}?submitted=1`);
+    startNavigation(() => router.push(`/candidate/applications/${result.data.displayId}?submitted=1`));
   });
 
   const v = getValues();
@@ -198,8 +200,8 @@ export function ApplyForm({
           {e.confirmAccurate && <p className="text-xs text-destructive">{e.confirmAccurate.message}</p>}
           <div className="flex justify-between gap-2">
             <Button variant="outline" onClick={() => setStep("edit")}>Back</Button>
-            <Button type="submit" disabled={formState.isSubmitting}>
-              {formState.isSubmitting ? "Submitting…" : "Submit application"}
+            <Button type="submit" disabled={formState.isSubmitting || navigating}>
+              {formState.isSubmitting || navigating ? "Submitting…" : "Submit application"}
             </Button>
           </div>
         </div>
