@@ -1,0 +1,62 @@
+{
+  "name": "maverickinnogarage",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MaverickInnogarage — IT recruitment management platform (job portal + admin portal)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "setup:storage": "tsx scripts/setup-storage.ts",
+    "create-super-admin": "tsx scripts/create-super-admin.ts",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.9.2",
+    "@prisma/client": "^6.19.3",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.109.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.577.0",
+    "next": "^15.5.28",
+    "react": "^19.2.9",
+    "react-dom": "^19.2.9",
+    "react-hook-form": "^7.91.0",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@playwright/test": "1.56",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^20.19.43",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.28",
+    "postcss": "^8.5.32",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4.1.18",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.1.12"
+  }
+}
