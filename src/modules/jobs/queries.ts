@@ -153,7 +153,7 @@ export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters,
         : {},
     ],
   };
-  const [total, jobs] = await Promise.all([
+  const [total, rows] = await Promise.all([
     prisma.job.count({ where }),
     prisma.job.findMany({
       where,
@@ -171,10 +171,17 @@ export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters,
         publishedAt: true,
         caseFile: { select: { displayId: true } },
         assignedRecruiter: { select: { firstName: true, lastName: true } },
-        _count: { select: { applications: true } },
       },
     }),
   ]);
+  // Application counts for this page only (relation _count would group all applications).
+  const counts = await prisma.application.groupBy({
+    by: ["jobId"],
+    where: { jobId: { in: rows.map((j) => j.id) } },
+    _count: { _all: true },
+  });
+  const byJob = new Map(counts.map((c) => [c.jobId, c._count._all]));
+  const jobs = rows.map((j) => ({ ...j, _count: { applications: byJob.get(j.id) ?? 0 } }));
   return { total, jobs };
 }
 

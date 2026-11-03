@@ -49,11 +49,22 @@ export async function getCaseFile(ctx: StaffContext, jobDisplayId: string, q?: s
           candidate: { select: { displayId: true, firstName: true, lastName: true } },
         },
       },
-      _count: { select: { documents: { where: { status: "ACTIVE" } } } },
     },
   });
+  // Count active documents only for these folders. Prisma's relation _count groups the
+  // whole documents table on every call, which grows with total data.
+  const docCounts = await prisma.document.groupBy({
+    by: ["folderId"],
+    where: { folderId: { in: folders.map((f) => f.id) }, status: "ACTIVE" },
+    _count: { _all: true },
+  });
+  const docsByFolder = new Map(docCounts.map((d) => [d.folderId, d._count._all]));
 
-  return { job, caseFile: job.caseFile, folders };
+  return {
+    job,
+    caseFile: job.caseFile,
+    folders: folders.map((f) => ({ ...f, _count: { documents: docsByFolder.get(f.id) ?? 0 } })),
+  };
 }
 
 /** All case files the user can access (one per job), newest first. */
@@ -74,7 +85,7 @@ export async function listCaseFiles(ctx: StaffContext, q: string | undefined, pa
       ],
     },
   };
-  const [total, caseFiles] = await Promise.all([
+  const [total, rows] = await Promise.all([
     prisma.caseFile.count({ where }),
     prisma.caseFile.findMany({
       where,
@@ -84,11 +95,18 @@ export async function listCaseFiles(ctx: StaffContext, q: string | undefined, pa
       select: {
         id: true,
         displayId: true,
-        _count: { select: { folders: true } },
         job: { select: { displayId: true, title: true } },
       },
     }),
   ]);
+  // Folder counts for this page only (relation _count would group all folders).
+  const counts = await prisma.caseFolder.groupBy({
+    by: ["caseFileId"],
+    where: { caseFileId: { in: rows.map((r) => r.id) } },
+    _count: { _all: true },
+  });
+  const byId = new Map(counts.map((c) => [c.caseFileId, c._count._all]));
+  const caseFiles = rows.map((r) => ({ ...r, _count: { folders: byId.get(r.id) ?? 0 } }));
   return { total, caseFiles };
 }
 

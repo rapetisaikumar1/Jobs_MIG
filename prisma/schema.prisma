@@ -247,6 +247,7 @@ model Job {
   @@index([country, state])
   @@index([workArrangement])
   @@index([employmentType])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "jobs_title_trgm_idx")
   @@map("jobs")
 }
 
@@ -345,6 +346,10 @@ model CandidateProfile {
   @@index([phone])
   @@index([updatedAt(sort: Desc)])
   @@index([searchVector], type: Gin)
+  @@index([firstName(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_first_name_trgm_idx")
+  @@index([lastName(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_last_name_trgm_idx")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_email_trgm_idx")
+  @@index([displayId(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_display_id_trgm_idx")
   @@map("candidate_profiles")
 }
 
