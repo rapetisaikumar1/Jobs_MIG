@@ -263,6 +263,8 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     await expect(deleteRole(admin, builtIn.id)).rejects.toThrow("Built-in roles cannot be deleted");
 
     const role = await saveRole(admin, null, { name: "Temp Sourcer", permissions: ["candidate.view", "role.delete"] });
+    await expect(saveRole(admin, null, { name: "temp sourcer ", permissions: ["candidate.view"] })).rejects.toThrow("already exists");
+    expect(await prisma.role.count({ where: { name: { equals: "Temp Sourcer", mode: "insensitive" } } })).toBe(1);
     expect((await prisma.rolePermission.count({ where: { roleId: role.id } }))).toBe(2);
     await prisma.userRole.create({ data: { userId: recruiterUser.id, roleId: role.id } });
     await expect(deleteRole(admin, role.id)).rejects.toThrow("assigned to 1 user");

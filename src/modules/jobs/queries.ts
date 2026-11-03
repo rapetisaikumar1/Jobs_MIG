@@ -38,6 +38,11 @@ export const publicJobSelect = {
 
 export type PublicJob = Prisma.JobGetPayload<{ select: typeof publicJobSelect }>;
 
+/** Never send a hidden salary to the public portal (it would otherwise be serialized into the page payload). */
+export function redactHiddenSalary<T extends Pick<PublicJob, "salaryPublic" | "compensationMin" | "compensationMax">>(job: T): T {
+  return job.salaryPublic ? job : { ...job, compensationMin: null, compensationMax: null };
+}
+
 /** Open for applications: published and the deadline (if any) has not passed. */
 export function openJobsWhere(now = new Date()): Prisma.JobWhereInput {
   return {
@@ -97,7 +102,7 @@ export async function listPublicJobs(filters: PublicJobFilters, page: number, pa
       ...pageArgs(page, pageSize),
     }),
   ]);
-  return { total, jobs };
+  return { total, jobs: jobs.map(redactHiddenSalary) };
 }
 
 export async function listHomepageJobs() {
@@ -110,15 +115,16 @@ export async function listHomepageJobs() {
     }),
     prisma.job.findMany({ where: openJobsWhere(), orderBy: { publishedAt: "desc" }, take: 6, select: publicJobSelect }),
   ]);
-  return { featured, recent };
+  return { featured: featured.map(redactHiddenSalary), recent: recent.map(redactHiddenSalary) };
 }
 
 /** Published or closed jobs are viewable publicly; drafts and archived jobs are not. */
 export async function getPublicJob(displayId: string) {
-  return prisma.job.findFirst({
+  const job = await prisma.job.findFirst({
     where: { displayId: displayId.toUpperCase(), status: { in: ["PUBLISHED", "CLOSED"] } },
     select: publicJobSelect,
   });
+  return job && redactHiddenSalary(job);
 }
 
 export async function listSkillSuggestions(limit = 300) {

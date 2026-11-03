@@ -135,6 +135,11 @@ export async function saveRole(
     if (!role) throw new AppError("Role not found.");
     if (role.key && LOCKED_ROLE_KEYS.includes(role.key)) throw new AppError(`The ${role.name} role cannot be edited.`);
   }
+  // Role names must be unique regardless of letter case ("Recruiter" vs "RECRUITER").
+  const sameName = await prisma.role.findFirst({
+    where: { name: { equals: input.name.trim(), mode: "insensitive" }, ...(roleId ? { NOT: { id: roleId } } : {}) },
+  });
+  if (sameName) throw new AppError(`A role named "${sameName.name}" already exists.`);
   const permissions = await prisma.permission.findMany({ where: { code: { in: input.permissions } } });
 
   return prisma.$transaction(async (tx) => {

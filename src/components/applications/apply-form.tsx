@@ -54,11 +54,15 @@ export function ApplyForm({
       confirmAccurate: false as unknown as true,
     },
   });
-  const { register, control, watch, setValue, formState, setError: setFieldError, trigger, getValues } = form;
+  const { register, control, watch, setValue, formState, setError: setFieldError, clearErrors, trigger, getValues } = form;
   const e = formState.errors;
   const resumeChoice = watch("resumeChoice");
 
-  React.useEffect(() => setValue("resumeDocumentId", resumeFile?.documentId ?? ""), [resumeFile, setValue]);
+  React.useEffect(() => {
+    setValue("resumeDocumentId", resumeFile?.documentId ?? "");
+    // A finished upload resolves an earlier "Upload a resume" error.
+    if (resumeFile) clearErrors("resumeDocumentId");
+  }, [resumeFile, setValue, clearErrors]);
   React.useEffect(() => setValue("coverLetterDocumentId", coverLetter?.documentId ?? ""), [coverLetter, setValue]);
   React.useEffect(() => setValue("supportingDocumentIds", supporting.map((f) => f.documentId)), [supporting, setValue]);
 
