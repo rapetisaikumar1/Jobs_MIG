@@ -413,6 +413,7 @@ model Application {
   @@index([status, appliedAt(sort: Desc)])
   @@index([appliedAt(sort: Desc)])
   @@index([assignedRecruiterId])
+  @@index([displayId(ops: raw("gin_trgm_ops"))], type: Gin, map: "applications_display_id_trgm_idx")
   @@map("applications")
 }
 

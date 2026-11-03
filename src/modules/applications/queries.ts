@@ -65,6 +65,44 @@ export type ApplicationListFilters = {
   mine?: boolean;
 };
 
+const KEYWORD_ID_LIMIT = 5_000;
+
+/**
+ * Keyword filter for the admin applications list. An OR across joined tables
+ * cannot use indexes, so matching candidate and job IDs are looked up first
+ * (trigram-indexed) and the application filter becomes indexed IN lists.
+ * Falls back to the plain relation filter when a keyword matches too many rows.
+ */
+async function applicationKeywordWhere(q: string): Promise<Prisma.ApplicationWhereInput> {
+  const contains = { contains: q, mode: "insensitive" } as const;
+  const [candidates, jobs] = await Promise.all([
+    prisma.candidateProfile.findMany({
+      where: { OR: [{ firstName: contains }, { lastName: contains }, { email: contains }] },
+      select: { id: true },
+      take: KEYWORD_ID_LIMIT + 1,
+    }),
+    prisma.job.findMany({ where: { title: contains }, select: { id: true }, take: KEYWORD_ID_LIMIT + 1 }),
+  ]);
+  if (candidates.length > KEYWORD_ID_LIMIT || jobs.length > KEYWORD_ID_LIMIT) {
+    return {
+      OR: [
+        { displayId: contains },
+        { candidate: { firstName: contains } },
+        { candidate: { lastName: contains } },
+        { candidate: { email: contains } },
+        { job: { title: contains } },
+      ],
+    };
+  }
+  return {
+    OR: [
+      { displayId: contains },
+      ...(candidates.length ? [{ candidateId: { in: candidates.map((c) => c.id) } }] : []),
+      ...(jobs.length ? [{ jobId: { in: jobs.map((j) => j.id) } }] : []),
+    ],
+  };
+}
+
 export async function listApplications(ctx: StaffContext, filters: ApplicationListFilters, page: number) {
   const where: Prisma.ApplicationWhereInput = {
     AND: [
@@ -73,17 +111,7 @@ export async function listApplications(ctx: StaffContext, filters: ApplicationLi
       filters.source ? { source: filters.source } : {},
       filters.job ? { job: { displayId: filters.job.toUpperCase() } } : {},
       filters.mine ? { assignedRecruiterId: ctx.user.id } : {},
-      filters.q
-        ? {
-            OR: [
-              { displayId: { contains: filters.q, mode: "insensitive" } },
-              { candidate: { firstName: { contains: filters.q, mode: "insensitive" } } },
-              { candidate: { lastName: { contains: filters.q, mode: "insensitive" } } },
-              { candidate: { email: { contains: filters.q, mode: "insensitive" } } },
-              { job: { title: { contains: filters.q, mode: "insensitive" } } },
-            ],
-          }
-        : {},
+      filters.q ? await applicationKeywordWhere(filters.q) : {},
     ],
   };
   const [total, rows] = await Promise.all([
