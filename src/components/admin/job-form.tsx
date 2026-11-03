@@ -27,14 +27,12 @@ export function JobForm({
   jobId,
   defaultValues,
   staff,
-  groups,
   skillSuggestions,
   meta,
 }: {
   jobId?: string;
   defaultValues: JobFormValues;
   staff: Option[];
-  groups: Option[];
   skillSuggestions: string[];
   meta?: { displayId: string; createdBy: string; createdAt: string; publishedAt: string; status: string };
 }) {
@@ -136,20 +134,11 @@ export function JobForm({
       </FormSection>
 
       <FormSection title="Internal information" description="Never shown on the public portal.">
-        <Field id="assignedRecruiterId" label="Assigned recruiter" error={e.assignedRecruiterId?.message}>
+        <Field id="assignedRecruiterId" label="Assigned recruiter" hint="Recruiters can see jobs they created or are assigned to." error={e.assignedRecruiterId?.message}>
           <Select id="assignedRecruiterId" {...register("assignedRecruiterId")}>
             <option value="">Unassigned</option>
             {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
-        </Field>
-        <Field id="groupIds" label="Groups with access" hint="Recruiters in these groups can work on this job" error={e.groupIds?.message}>
-          <div className="flex max-h-40 flex-col gap-1.5 overflow-y-auto rounded-md border p-2">
-            {groups.length ? groups.map((g) => (
-              <label key={g.id} className="flex items-center gap-2 text-sm">
-                <Checkbox value={g.id} {...register("groupIds")} /> {g.name}
-              </label>
-            )) : <span className="text-xs text-muted-foreground">No groups yet</span>}
-          </div>
         </Field>
         <Field id="internalNotes" label="Internal notes" error={e.internalNotes?.message} className="sm:col-span-2">
           <Textarea id="internalNotes" rows={3} {...register("internalNotes")} />

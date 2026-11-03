@@ -50,9 +50,9 @@ export default async function CandidatePage({ params, searchParams }: { params: 
         back={{ href: "/admin/candidates", label: "Candidates" }}
         actions={
           <>
-            {c.defaultResumeId && <a href={`/api/documents/${c.defaultResumeId}?inline=1`} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline" })}>Open resume</a>}
+            {ctx.can(PERMISSIONS.DOCUMENT_VIEW) && c.defaultResumeId && <a href={`/api/documents/${c.defaultResumeId}?inline=1`} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline" })}>Open resume</a>}
             {ctx.can(PERMISSIONS.CANDIDATE_EDIT) && <Link href={`/admin/candidates/${c.displayId}/edit`} className={buttonVariants({ variant: "outline" })}>Edit</Link>}
-            {ctx.can(PERMISSIONS.CANDIDATE_ADD) && <Link href={`/admin/candidates/${c.displayId}/add-to-job`} className={buttonVariants()}>Add to job</Link>}
+            {ctx.can(PERMISSIONS.APPLICATION_CREATE) && <Link href={`/admin/candidates/${c.displayId}/add-to-job`} className={buttonVariants()}>Add to job</Link>}
           </>
         }
       />
@@ -126,9 +126,9 @@ export default async function CandidatePage({ params, searchParams }: { params: 
             <CardHeader><CardTitle>Profile documents</CardTitle></CardHeader>
             <CardContent>
               {ctx.can(PERMISSIONS.CANDIDATE_EDIT) ? (
-                <ProfileDocuments documents={docs} defaultResumeId={c.defaultResumeId} candidateId={c.id} />
+                <ProfileDocuments documents={docs} defaultResumeId={c.defaultResumeId} candidateId={c.id} canOpen={ctx.can(PERMISSIONS.DOCUMENT_VIEW)} />
               ) : (
-                <DocumentList documents={docs} />
+                <DocumentList documents={docs} canOpen={ctx.can(PERMISSIONS.DOCUMENT_VIEW)} />
               )}
             </CardContent>
           </Card>

@@ -178,7 +178,6 @@ export async function getAdminJob(ctx: StaffContext, displayId: string) {
     include: {
       caseFile: { include: { _count: { select: { folders: true } } } },
       skills: { include: { skill: true } },
-      groups: { include: { group: true } },
       assignedRecruiter: { select: { id: true, firstName: true, lastName: true } },
       createdBy: { select: { firstName: true, lastName: true } },
       _count: { select: { applications: true } },
@@ -187,13 +186,12 @@ export async function getAdminJob(ctx: StaffContext, displayId: string) {
 }
 
 export async function listJobFormOptions() {
-  const [staff, groups] = await Promise.all([
+  const [staff] = await Promise.all([
     prisma.user.findMany({
       where: { type: "STAFF", isActive: true },
       orderBy: { firstName: "asc" },
       select: { id: true, firstName: true, lastName: true },
     }),
-    prisma.group.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
-  return { staff, groups };
+  return { staff };
 }

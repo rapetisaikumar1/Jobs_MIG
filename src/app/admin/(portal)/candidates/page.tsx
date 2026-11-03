@@ -44,7 +44,7 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
         <Button type="submit" variant="outline">Search</Button>
       </LiveSearchForm>
       {candidates.length ? (
-        <CandidateTable rows={candidates} />
+        <CandidateTable rows={candidates} canViewDocuments={ctx.can(PERMISSIONS.DOCUMENT_VIEW)} canAddToJob={ctx.can(PERMISSIONS.APPLICATION_CREATE)} />
       ) : (
         <EmptyState
           icon={<Users />}

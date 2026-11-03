@@ -185,7 +185,7 @@ export default async function AdvancedSearchPage({ searchParams }: { searchParam
           ) : result.candidates.length ? (
             <>
               <div className="space-y-3">
-                {result.candidates.map((c) => <CandidateResultCard key={c.id} c={c} />)}
+                {result.candidates.map((c) => <CandidateResultCard key={c.id} c={c} canViewDocuments={ctx.can(PERMISSIONS.DOCUMENT_VIEW)} canAddToJob={ctx.can(PERMISSIONS.APPLICATION_CREATE)} />)}
               </div>
               <Pagination basePath="/admin/search" params={params} page={page} pageSize={PAGE_SIZE} total={result.total} />
             </>

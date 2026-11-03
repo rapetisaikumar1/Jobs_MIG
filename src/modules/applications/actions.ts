@@ -42,7 +42,7 @@ export async function addCandidateToJobAction(
   values: AddCandidateToJobFormValues,
 ): Promise<ActionResult<{ displayId: string }>> {
   return runAction(async () => {
-    const ctx = await requireStaffForAction(PERMISSIONS.CANDIDATE_ADD);
+    const ctx = await requireStaffForAction(PERMISSIONS.APPLICATION_CREATE);
     const parsed = addCandidateToJobSchema.safeParse(values);
     if (!parsed.success) return validationFailure(parsed.error);
     const result = await addCandidateToJob(ctx, parsed.data);
@@ -64,7 +64,7 @@ export async function updateApplicationStatusAction(values: z.input<typeof statu
 
 export async function addApplicationNoteAction(values: z.input<typeof applicationNoteSchema>): Promise<ActionResult> {
   return runAction(async () => {
-    const ctx = await requireStaffForAction(PERMISSIONS.APPLICATION_UPDATE_STATUS);
+    const ctx = await requireStaffForAction(PERMISSIONS.APPLICATION_NOTE);
     const parsed = applicationNoteSchema.safeParse(values);
     if (!parsed.success) return validationFailure(parsed.error);
     await addApplicationNote(ctx, parsed.data.applicationId, parsed.data.body);
@@ -75,7 +75,7 @@ export async function addApplicationNoteAction(values: z.input<typeof applicatio
 
 export async function assignRecruiterAction(values: z.input<typeof assignRecruiterSchema>): Promise<ActionResult> {
   return runAction(async () => {
-    const ctx = await requireStaffForAction(PERMISSIONS.APPLICATION_UPDATE_STATUS);
+    const ctx = await requireStaffForAction(PERMISSIONS.APPLICATION_ASSIGN);
     const parsed = assignRecruiterSchema.safeParse(values);
     if (!parsed.success) return validationFailure(parsed.error);
     await assignApplicationRecruiter(ctx, parsed.data.applicationId, parsed.data.assignedRecruiterId ?? null);

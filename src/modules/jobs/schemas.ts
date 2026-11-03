@@ -15,7 +15,6 @@ import {
   optionalUuid,
   requiredText,
   stringList,
-  uuid,
 } from "@/lib/validation";
 
 export const jobSchema = z
@@ -40,7 +39,6 @@ export const jobSchema = z
     salaryPublic: checkbox,
     applicationDeadline: optionalDate,
     assignedRecruiterId: optionalUuid,
-    groupIds: z.array(uuid).max(50).default([]),
     internalNotes: optionalText(5000),
     isFeatured: checkbox,
   })

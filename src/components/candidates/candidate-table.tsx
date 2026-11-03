@@ -31,7 +31,17 @@ export type CandidateRow = {
 const iconButton = "inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
 
 /** Candidate results with quick actions (profile, resume, applications, add to job). */
-export function CandidateTable({ rows, showActions = true }: { rows: CandidateRow[]; showActions?: boolean }) {
+export function CandidateTable({
+  rows,
+  showActions = true,
+  canViewDocuments = true,
+  canAddToJob = true,
+}: {
+  rows: CandidateRow[];
+  showActions?: boolean;
+  canViewDocuments?: boolean;
+  canAddToJob?: boolean;
+}) {
   return (
     <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
       <Table>
@@ -89,7 +99,7 @@ export function CandidateTable({ rows, showActions = true }: { rows: CandidateRo
                       <Link href={`/admin/candidates/${c.displayId}`} title="View profile" aria-label={`View profile of ${fullName(c)}`} className={iconButton}>
                         <Eye className="size-4" />
                       </Link>
-                      {c.defaultResumeId && (
+                      {canViewDocuments && c.defaultResumeId && (
                         <a href={`/api/documents/${c.defaultResumeId}?inline=1`} target="_blank" rel="noopener noreferrer" title="Open resume" aria-label="Open resume" className={iconButton}>
                           <FileText className="size-4" />
                         </a>
@@ -97,9 +107,11 @@ export function CandidateTable({ rows, showActions = true }: { rows: CandidateRo
                       <Link href={`/admin/candidates/${c.displayId}#applications`} title="Applications" aria-label="Applications" className={iconButton}>
                         <ClipboardList className="size-4" />
                       </Link>
-                      <Link href={`/admin/candidates/${c.displayId}/add-to-job`} className={buttonVariants({ variant: "outline", size: "sm", className: "ml-1" })}>
-                        <UserPlus aria-hidden /> Add to job
-                      </Link>
+                      {canAddToJob && (
+                        <Link href={`/admin/candidates/${c.displayId}/add-to-job`} className={buttonVariants({ variant: "outline", size: "sm", className: "ml-1" })}>
+                          <UserPlus aria-hidden /> Add to job
+                        </Link>
+                      )}
                     </div>
                   </TD>
                 )}

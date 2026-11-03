@@ -5,7 +5,7 @@ import { runAction } from "@/lib/action";
 import { fail, ok, validationFailure, type ActionResult } from "@/lib/action-result";
 import { serverEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { enforceRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, enforceRateLimit, recordRateLimitHit } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureCandidateAccount, type CandidateSignupMetadata } from "@/modules/auth/provisioning";
 import { safeNextPath } from "@/modules/auth/redirects";
@@ -56,11 +56,15 @@ export async function loginAction(
   const result = await runAction(async () => {
     const parsed = loginSchema.safeParse(values);
     if (!parsed.success) return validationFailure(parsed.error);
-    await enforceRateLimit("login", parsed.data.email);
+    await checkRateLimit("login", parsed.data.email);
 
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
     if (error || !data.user) {
+      await recordRateLimitHit("login", parsed.data.email);
+      if (error?.code === "user_banned") {
+        return fail("This account has been deactivated. Contact an administrator.");
+      }
       if (error?.code === "email_not_confirmed") {
         return fail("Please verify your email address first. Check your inbox for the verification link.");
       }

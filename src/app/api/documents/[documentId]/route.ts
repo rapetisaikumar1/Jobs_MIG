@@ -17,8 +17,8 @@ function deny(status: 403 | 404) {
  * Secure document access. Authorizes the caller, then redirects to a signed URL
  * that expires after 60 seconds. Files are never publicly reachable.
  *   - Candidates: only their own documents.
- *   - Staff: profile documents need "candidate.view"; application documents need
- *     "application.view" and access to the application's job.
+ *   - Staff: "document.view", plus "candidate.view" for profile documents, or
+ *     "application.view" and access to the application's job for application documents.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ documentId: string }> }) {
   const parsedId = uuid.safeParse((await params).documentId);
@@ -29,6 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const staff = await getStaffContext();
   if (staff) {
+    if (!staff.can(PERMISSIONS.DOCUMENT_VIEW)) return deny(403);
     if (doc.applicationId) {
       if (!staff.can(PERMISSIONS.APPLICATION_VIEW)) return deny(403);
       const inScope = await prisma.application.count({

@@ -27,12 +27,15 @@ export function ProfileDocuments({
   defaultResumeId,
   candidateId,
   canEdit = true,
+  canOpen = true,
 }: {
   documents: DocumentRow[];
   defaultResumeId: string | null;
   /** Set when staff manage a candidate's documents. */
   candidateId?: string;
   canEdit?: boolean;
+  /** Staff without "document.view" see file names only. */
+  canOpen?: boolean;
 }) {
   const router = useRouter();
   const [type, setType] = React.useState<DocumentType>("RESUME");
@@ -58,7 +61,7 @@ export function ProfileDocuments({
                 </span>
               </span>
               <span className="flex items-center gap-2">
-                <DocumentLinks doc={doc} />
+                {canOpen && <DocumentLinks doc={doc} />}
                 {canEdit && doc.type === "RESUME" && doc.id !== defaultResumeId && (
                   <ActionButton variant="ghost" size="sm" action={() => setDefaultResumeAction({ documentId: doc.id, candidateId })}>
                     Make default

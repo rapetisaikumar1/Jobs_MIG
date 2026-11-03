@@ -45,6 +45,8 @@ export default async function ApplicationFolderPage({ params, searchParams }: { 
   const notice = param(await searchParams, "notice");
   const snap = parseSnapshot(app.candidateSnapshot);
   const canUpdate = ctx.can(PERMISSIONS.APPLICATION_UPDATE_STATUS);
+  const canAssign = ctx.can(PERMISSIONS.APPLICATION_ASSIGN);
+  const canNote = ctx.can(PERMISSIONS.APPLICATION_NOTE);
   const c = app.candidate;
 
   return (
@@ -85,7 +87,7 @@ export default async function ApplicationFolderPage({ params, searchParams }: { 
 
           <Card>
             <CardHeader><CardTitle>Documents submitted</CardTitle><CardDescription>Copies stored with this application.</CardDescription></CardHeader>
-            <CardContent><DocumentList documents={app.documents} /></CardContent>
+            <CardContent><DocumentList documents={app.documents} canOpen={ctx.can(PERMISSIONS.DOCUMENT_VIEW)} /></CardContent>
           </Card>
 
           {snap && (
@@ -123,7 +125,7 @@ export default async function ApplicationFolderPage({ params, searchParams }: { 
           <Card>
             <CardHeader><CardTitle>Internal recruiter notes</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              {canUpdate && <NoteForm applicationId={app.id} />}
+              {canNote && <NoteForm applicationId={app.id} />}
               {app.notes.length ? (
                 <ul className="space-y-3">
                   {app.notes.map((n) => (
@@ -139,12 +141,12 @@ export default async function ApplicationFolderPage({ params, searchParams }: { 
         </div>
 
         <div className="space-y-6">
-          {canUpdate && (
+          {(canUpdate || canAssign) && (
             <Card>
               <CardHeader><CardTitle>Status</CardTitle></CardHeader>
               <CardContent className="space-y-5">
-                <StatusUpdateForm key={app.status} applicationId={app.id} status={app.status} />
-                <AssignRecruiterForm applicationId={app.id} current={app.assignedRecruiter?.id ?? ""} staff={staff.map((s) => ({ id: s.id, name: fullName(s) }))} />
+                {canUpdate ? <StatusUpdateForm key={app.status} applicationId={app.id} status={app.status} /> : <div className="text-sm">Current: <ApplicationStatusBadge status={app.status} /></div>}
+                {canAssign && <AssignRecruiterForm applicationId={app.id} current={app.assignedRecruiter?.id ?? ""} staff={staff.map((s) => ({ id: s.id, name: fullName(s) }))} />}
               </CardContent>
             </Card>
           )}

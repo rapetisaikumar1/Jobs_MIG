@@ -34,7 +34,7 @@ export async function requestUploadAction(input: z.input<typeof uploadRequestSch
 
     const staff = await getStaffContext();
     if (staff) {
-      if (!staff.can(PERMISSIONS.CANDIDATE_ADD) && !staff.can(PERMISSIONS.CANDIDATE_EDIT)) throw new ForbiddenError();
+      if (![PERMISSIONS.CANDIDATE_ADD, PERMISSIONS.CANDIDATE_EDIT, PERMISSIONS.APPLICATION_CREATE].some((p) => staff.can(p))) throw new ForbiddenError();
       if (candidateId && !(await prisma.candidateProfile.count({ where: { id: candidateId } }))) {
         throw new AppError("Candidate not found.");
       }

@@ -11,7 +11,8 @@
  */
 import { randomUUID } from "node:crypto";
 import { PrismaClient, type ApplicationStatus, type Prisma, type Source } from "@prisma/client";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { scriptSupabaseAdmin } from "../scripts/supabase-admin";
 import { syncRolesAndPermissions } from "../src/modules/access-control/sync";
 import { buildCandidateSnapshot } from "../src/modules/candidates/snapshot";
 import { replaceCandidateSkills, replaceJobSkills } from "../src/modules/candidates/skills";
@@ -23,7 +24,7 @@ const PASSWORD = process.env.SEED_DEMO_PASSWORD;
 const BUCKET = process.env.SUPABASE_DOCUMENTS_BUCKET ?? "candidate-documents";
 const supabase: SupabaseClient | null =
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && PASSWORD
-    ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+    ? scriptSupabaseAdmin()
     : null;
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
@@ -87,37 +88,30 @@ async function storeResume(candidateId: string, fileName: string, lines: string[
 // ---------------------------------------------------------------------------
 
 const STAFF = [
-  { key: "admin", first: "Alex", last: "Morgan", role: "SUPER_ADMIN", groups: [] as string[] },
-  { key: "ops", first: "Jordan", last: "Reyes", role: "ADMIN", groups: [] },
-  { key: "emma", first: "Emma", last: "Tremblay", role: "RECRUITER", groups: ["Canada Recruitment Team", "Java Recruitment Team"] },
-  { key: "marcus", first: "Marcus", last: "Johnson", role: "RECRUITER", groups: ["US Recruitment Team", "Data Engineering Recruitment Team"] },
-  { key: "aisha", first: "Aisha", last: "Khan", role: "RECRUITER", groups: ["US Recruitment Team"] },
+  { key: "admin", first: "Alex", last: "Morgan", role: "SUPER_ADMIN" },
+  { key: "ops", first: "Jordan", last: "Reyes", role: "ADMIN" },
+  { key: "emma", first: "Emma", last: "Tremblay", role: "RECRUITER" },
+  { key: "marcus", first: "Marcus", last: "Johnson", role: "RECRUITER" },
+  { key: "aisha", first: "Aisha", last: "Khan", role: "RECRUITER" },
 ];
-
-const GROUPS = [
-  ["US Recruitment Team", "Recruiters covering US-based roles"],
-  ["Canada Recruitment Team", "Recruiters covering Canadian roles"],
-  ["Java Recruitment Team", "Java and JVM specialists"],
-  ["Data Engineering Recruitment Team", "Data, analytics and ML roles"],
-] as const;
 
 type JobSeed = {
   key: string; title: string; country: "US" | "CA"; state: string; city: string;
   wa: "REMOTE" | "HYBRID" | "ONSITE"; et: "FULL_TIME" | "CONTRACT" | "PART_TIME"; min: number; max: number;
   pay: [number, number]; currency: "USD" | "CAD"; type: "ANNUAL" | "HOURLY"; public: boolean;
   required: string[]; preferred: string[]; status: "DRAFT" | "PUBLISHED" | "CLOSED"; posted: number | null;
-  deadline: number | null; recruiter: string; groups: string[]; featured?: boolean;
+  deadline: number | null; recruiter: string; featured?: boolean;
 };
 
 const JOBS: JobSeed[] = [
-  { key: "java-tor", title: "Senior Java Developer", country: "CA", state: "ON", city: "Toronto", wa: "HYBRID", et: "FULL_TIME", min: 5, max: 8, pay: [110000, 130000], currency: "CAD", type: "ANNUAL", public: true, required: ["Java", "Spring Boot", "AWS"], preferred: ["Kafka", "Kubernetes"], status: "PUBLISHED", posted: 4, deadline: 27, recruiter: "emma", groups: ["Canada Recruitment Team", "Java Recruitment Team"], featured: true },
-  { key: "data-aus", title: "Data Engineer", country: "US", state: "TX", city: "Austin", wa: "REMOTE", et: "CONTRACT", min: 4, max: 7, pay: [75, 90], currency: "USD", type: "HOURLY", public: true, required: ["Python", "SQL", "Azure"], preferred: ["Databricks", "Airflow"], status: "PUBLISHED", posted: 2, deadline: 30, recruiter: "marcus", groups: ["US Recruitment Team", "Data Engineering Recruitment Team"], featured: true },
-  { key: "devops-van", title: "Cloud DevOps Engineer", country: "CA", state: "BC", city: "Vancouver", wa: "HYBRID", et: "FULL_TIME", min: 3, max: 6, pay: [105000, 125000], currency: "CAD", type: "ANNUAL", public: false, required: ["Terraform", "AWS", "Kubernetes"], preferred: ["Python", "GitHub Actions"], status: "PUBLISHED", posted: 9, deadline: null, recruiter: "emma", groups: ["Canada Recruitment Team"] },
-  { key: "react-ny", title: "React Frontend Developer", country: "US", state: "NY", city: "New York", wa: "REMOTE", et: "FULL_TIME", min: 3, max: 6, pay: [120000, 145000], currency: "USD", type: "ANNUAL", public: true, required: ["React", "TypeScript"], preferred: ["Next.js", "GraphQL"], status: "PUBLISHED", posted: 12, deadline: 18, recruiter: "aisha", groups: ["US Recruitment Team"], featured: true },
-  { key: "net-cal", title: ".NET Developer (Contract)", country: "CA", state: "AB", city: "Calgary", wa: "ONSITE", et: "CONTRACT", min: 5, max: 10, pay: [80, 95], currency: "CAD", type: "HOURLY", public: true, required: ["C#", ".NET", "SQL Server"], preferred: ["Azure"], status: "PUBLISHED", posted: 20, deadline: 10, recruiter: "emma", groups: ["Canada Recruitment Team"] },
-  { key: "qa-chi", title: "QA Automation Engineer", country: "US", state: "IL", city: "Chicago", wa: "HYBRID", et: "FULL_TIME", min: 2, max: 5, pay: [90000, 110000], currency: "USD", type: "ANNUAL", public: false, required: ["Selenium", "Java"], preferred: ["Cypress", "Playwright"], status: "PUBLISHED", posted: 6, deadline: null, recruiter: "aisha", groups: ["US Recruitment Team"] },
-  { key: "sf-mtl", title: "Salesforce Developer", country: "CA", state: "QC", city: "Montreal", wa: "HYBRID", et: "FULL_TIME", min: 3, max: 6, pay: [95000, 115000], currency: "CAD", type: "ANNUAL", public: false, required: ["Salesforce", "Apex"], preferred: ["LWC"], status: "DRAFT", posted: null, deadline: null, recruiter: "emma", groups: ["Canada Recruitment Team"] },
-  { key: "py-sea", title: "Python Backend Engineer", country: "US", state: "WA", city: "Seattle", wa: "ONSITE", et: "FULL_TIME", min: 4, max: 8, pay: [140000, 165000], currency: "USD", type: "ANNUAL", public: true, required: ["Python", "Django", "PostgreSQL"], preferred: ["AWS"], status: "CLOSED", posted: 45, deadline: null, recruiter: "marcus", groups: ["US Recruitment Team"] },
+  { key: "java-tor", title: "Senior Java Developer", country: "CA", state: "ON", city: "Toronto", wa: "HYBRID", et: "FULL_TIME", min: 5, max: 8, pay: [110000, 130000], currency: "CAD", type: "ANNUAL", public: true, required: ["Java", "Spring Boot", "AWS"], preferred: ["Kafka", "Kubernetes"], status: "PUBLISHED", posted: 4, deadline: 27, recruiter: "emma", featured: true },
+  { key: "data-aus", title: "Data Engineer", country: "US", state: "TX", city: "Austin", wa: "REMOTE", et: "CONTRACT", min: 4, max: 7, pay: [75, 90], currency: "USD", type: "HOURLY", public: true, required: ["Python", "SQL", "Azure"], preferred: ["Databricks", "Airflow"], status: "PUBLISHED", posted: 2, deadline: 30, recruiter: "marcus", featured: true },
+  { key: "devops-van", title: "Cloud DevOps Engineer", country: "CA", state: "BC", city: "Vancouver", wa: "HYBRID", et: "FULL_TIME", min: 3, max: 6, pay: [105000, 125000], currency: "CAD", type: "ANNUAL", public: false, required: ["Terraform", "AWS", "Kubernetes"], preferred: ["Python", "GitHub Actions"], status: "PUBLISHED", posted: 9, deadline: null, recruiter: "emma" },
+  { key: "react-ny", title: "React Frontend Developer", country: "US", state: "NY", city: "New York", wa: "REMOTE", et: "FULL_TIME", min: 3, max: 6, pay: [120000, 145000], currency: "USD", type: "ANNUAL", public: true, required: ["React", "TypeScript"], preferred: ["Next.js", "GraphQL"], status: "PUBLISHED", posted: 12, deadline: 18, recruiter: "aisha", featured: true },
+  { key: "net-cal", title: ".NET Developer (Contract)", country: "CA", state: "AB", city: "Calgary", wa: "ONSITE", et: "CONTRACT", min: 5, max: 10, pay: [80, 95], currency: "CAD", type: "HOURLY", public: true, required: ["C#", ".NET", "SQL Server"], preferred: ["Azure"], status: "PUBLISHED", posted: 20, deadline: 10, recruiter: "emma" },
+  { key: "qa-chi", title: "QA Automation Engineer", country: "US", state: "IL", city: "Chicago", wa: "HYBRID", et: "FULL_TIME", min: 2, max: 5, pay: [90000, 110000], currency: "USD", type: "ANNUAL", public: false, required: ["Selenium", "Java"], preferred: ["Cypress", "Playwright"], status: "PUBLISHED", posted: 6, deadline: null, recruiter: "aisha" },
+  { key: "sf-mtl", title: "Salesforce Developer", country: "CA", state: "QC", city: "Montreal", wa: "HYBRID", et: "FULL_TIME", min: 3, max: 6, pay: [95000, 115000], currency: "CAD", type: "ANNUAL", public: false, required: ["Salesforce", "Apex"], preferred: ["LWC"], status: "DRAFT", posted: null, deadline: null, recruiter: "emma" },
+  { key: "py-sea", title: "Python Backend Engineer", country: "US", state: "WA", city: "Seattle", wa: "ONSITE", et: "FULL_TIME", min: 4, max: 8, pay: [140000, 165000], currency: "USD", type: "ANNUAL", public: true, required: ["Python", "Django", "PostgreSQL"], preferred: ["AWS"], status: "CLOSED", posted: 45, deadline: null, recruiter: "marcus" },
 ];
 
 type CandidateSeed = {
@@ -168,10 +162,7 @@ async function main() {
   if (!supabase) console.warn("! Supabase credentials or SEED_DEMO_PASSWORD missing: demo users get no logins and no resume files.");
 
   const roles = Object.fromEntries((await prisma.role.findMany()).map((r) => [r.key, r.id]));
-  const candidateRoleId = roles.CANDIDATE;
 
-  const groups: Record<string, string> = {};
-  for (const [name, description] of GROUPS) groups[name] = (await prisma.group.create({ data: { name, description } })).id;
 
   const staff: Record<string, string> = {};
   for (const s of STAFF) {
@@ -181,7 +172,6 @@ async function main() {
       data: {
         id, email, firstName: s.first, lastName: s.last, type: "STAFF",
         roles: { create: [{ roleId: roles[s.role] }] },
-        groups: { create: s.groups.map((g) => ({ groupId: groups[g] })) },
       },
     });
     staff[s.key] = id;
@@ -203,7 +193,7 @@ async function main() {
           status: j.status, publishedAt: j.posted != null ? daysAgo(j.posted) : null, closedAt: j.status === "CLOSED" ? daysAgo(5) : null,
           createdAt: daysAgo((j.posted ?? 0) + 2), assignedRecruiterId: staff[j.recruiter], createdById: staff.ops,
           internalNotes: "Client prefers candidates who can start within 30 days.",
-          caseFile: { create: {} }, groups: { create: j.groups.map((g) => ({ groupId: groups[g] })) },
+          caseFile: { create: {} },
         },
         include: { caseFile: true },
       });
@@ -220,7 +210,7 @@ async function main() {
     let userId: string | null = null;
     if (c.portal) {
       userId = await authUser(email, { account_type: "candidate", first_name: c.first, last_name: c.last, phone: c.phone, country: c.country });
-      await prisma.user.create({ data: { id: userId, email, firstName: c.first, lastName: c.last, type: "CANDIDATE", roles: { create: [{ roleId: candidateRoleId }] } } });
+      await prisma.user.create({ data: { id: userId, email, firstName: c.first, lastName: c.last, type: "CANDIDATE" } });
     }
     const profile = await prisma.$transaction(async (tx) => {
       const p = await tx.candidateProfile.create({

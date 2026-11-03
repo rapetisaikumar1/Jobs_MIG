@@ -27,7 +27,7 @@ export default async function JobFoldersPage({ params, searchParams }: { params:
   if (!data) notFound();
   const { job, folders } = data;
   const tz = await getViewerTimeZone();
-  const canAdd = ctx.can(PERMISSIONS.CANDIDATE_ADD) && (job.status === "DRAFT" || job.status === "PUBLISHED");
+  const canAdd = ctx.can(PERMISSIONS.APPLICATION_CREATE) && (job.status === "DRAFT" || job.status === "PUBLISHED");
 
   return (
     <>

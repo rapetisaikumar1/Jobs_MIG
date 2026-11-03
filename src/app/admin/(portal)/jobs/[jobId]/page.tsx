@@ -71,7 +71,7 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
             {ctx.can(PERMISSIONS.CASE_FILE_VIEW) && (
               <Link href={`/admin/case-files/${job.displayId}`} className={buttonVariants({ variant: "outline" })}><FolderOpen aria-hidden /> Case file ({job.caseFile?._count.folders ?? 0})</Link>
             )}
-            {ctx.can(PERMISSIONS.CANDIDATE_ADD) && (job.status === "DRAFT" || job.status === "PUBLISHED") && (
+            {ctx.can(PERMISSIONS.APPLICATION_CREATE) && (job.status === "DRAFT" || job.status === "PUBLISHED") && (
               <Link href={`/admin/jobs/${job.displayId}/add-candidate`} className={buttonVariants({ variant: "outline" })}><UserPlus aria-hidden /> Add existing candidate</Link>
             )}
             {ctx.can(PERMISSIONS.JOB_EDIT) && <Link href={`/admin/jobs/${job.displayId}/edit`} className={buttonVariants({ variant: "outline" })}>Edit</Link>}
@@ -149,7 +149,6 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
             <CardContent>
               <DetailList columns={1} items={[
                 { label: "Assigned recruiter", value: job.assignedRecruiter ? fullName(job.assignedRecruiter) : "Unassigned" },
-                { label: "Groups", value: job.groups.length ? job.groups.map((g) => g.group.name).join(", ") : null },
                 { label: "Internal notes", value: job.internalNotes && <span className="prose-text">{job.internalNotes}</span> },
                 { label: "Created", value: `${formatDateTime(job.createdAt, tz)} by ${fullName(job.createdBy)}` },
                 { label: "Posted (first published)", value: job.publishedAt ? formatDateTime(job.publishedAt, tz) : "Not yet published" },

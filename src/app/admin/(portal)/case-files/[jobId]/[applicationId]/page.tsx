@@ -28,6 +28,7 @@ export default async function ApplicationFolderContentsPage({ params }: { params
   const { application: app, caseFile } = folder;
   const job = caseFile.job;
   const name = fullName(app.candidate);
+  const canOpen = ctx.can(PERMISSIONS.DOCUMENT_VIEW);
 
   return (
     <>
@@ -68,14 +69,17 @@ export default async function ApplicationFolderContentsPage({ params }: { params
                 {DOCUMENT_TYPE_LABELS[doc.type]} · {formatFileSize(doc.sizeBytes)}
               </p>
               <div className="mt-4 flex items-center gap-4 border-t pt-3 text-xs">
-                {isPdf && (
+                {!canOpen && <span className="text-muted-foreground">No access to open documents</span>}
+                {canOpen && isPdf && (
                   <a href={`/api/documents/${doc.id}?inline=1`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium hover:underline">
                     <Eye className="size-3.5" aria-hidden /> View
                   </a>
                 )}
-                <a href={`/api/documents/${doc.id}`} className="inline-flex items-center gap-1 font-medium hover:underline">
-                  <Download className="size-3.5" aria-hidden /> Download
-                </a>
+                {canOpen && (
+                  <a href={`/api/documents/${doc.id}`} className="inline-flex items-center gap-1 font-medium hover:underline">
+                    <Download className="size-3.5" aria-hidden /> Download
+                  </a>
+                )}
                 <span className="ml-auto text-muted-foreground">{formatDate(doc.createdAt, tz)}</span>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import type { Job, JobGroup, JobSkill, Skill } from "@prisma/client";
+import type { Job, JobSkill, Skill } from "@prisma/client";
 import { decimalToNumber, toDateInputValue } from "@/lib/format";
 import type { JobFormValues } from "@/modules/jobs/schemas";
 
@@ -25,12 +25,11 @@ export const EMPTY_JOB: JobFormValues = {
   salaryPublic: false,
   applicationDeadline: "",
   assignedRecruiterId: "",
-  groupIds: [],
   internalNotes: "",
   isFeatured: false,
 };
 
-export function jobToFormValues(job: Job & { skills: (JobSkill & { skill: Skill })[]; groups: JobGroup[] }): JobFormValues {
+export function jobToFormValues(job: Job & { skills: (JobSkill & { skill: Skill })[] }): JobFormValues {
   return {
     title: job.title,
     description: job.description,
@@ -52,7 +51,6 @@ export function jobToFormValues(job: Job & { skills: (JobSkill & { skill: Skill 
     salaryPublic: job.salaryPublic,
     applicationDeadline: toDateInputValue(job.applicationDeadline),
     assignedRecruiterId: str(job.assignedRecruiterId),
-    groupIds: job.groups.map((g) => g.groupId),
     internalNotes: str(job.internalNotes),
     isFeatured: job.isFeatured,
   };

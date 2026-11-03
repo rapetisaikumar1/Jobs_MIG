@@ -17,7 +17,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
   const ctx = await requireStaff(PERMISSIONS.JOB_EDIT);
   const job = await getAdminJob(ctx, (await params).jobId);
   if (!job) notFound();
-  const [{ staff, groups }, skills, tz] = await Promise.all([listJobFormOptions(), listSkillSuggestions(), getViewerTimeZone()]);
+  const [{ staff }, skills, tz] = await Promise.all([listJobFormOptions(), listSkillSuggestions(), getViewerTimeZone()]);
   return (
     <div className="max-w-5xl">
       <PageHeader title={`Edit ${job.title}`} description="Editing never changes the original posted date." back={{ href: `/admin/jobs/${job.displayId}`, label: job.displayId }} />
@@ -26,7 +26,6 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
           jobId={job.id}
           defaultValues={jobToFormValues(job)}
           staff={staff.map((s) => ({ id: s.id, name: fullName(s) }))}
-          groups={groups}
           skillSuggestions={skills}
           meta={{
             displayId: job.displayId,

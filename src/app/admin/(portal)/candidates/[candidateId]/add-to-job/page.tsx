@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Add candidate to a job" };
 
 /** Candidate-first entry point: choose a job, then confirm on the job's add-candidate page. */
 export default async function CandidateAddToJobPage({ params, searchParams }: { params: Promise<{ candidateId: string }>; searchParams: Promise<SearchParams> }) {
-  const ctx = await requireStaff(PERMISSIONS.CANDIDATE_ADD);
+  const ctx = await requireStaff(PERMISSIONS.APPLICATION_CREATE);
   const candidate = await prisma.candidateProfile.findUnique({
     where: { displayId: (await params).candidateId.toUpperCase() },
     select: { id: true, displayId: true, firstName: true, lastName: true, applications: { select: { jobId: true } } },

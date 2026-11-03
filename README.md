@@ -3,7 +3,7 @@
 One Next.js application with two portals that share one Supabase PostgreSQL database:
 
 - **Job Portal** (`/`, `/jobs`, `/candidate/*`): candidates register, search jobs, apply with resumes, and track their applications.
-- **Admin Portal** (`/admin/*`, opens on Jobs): staff manage jobs, case files, candidates, applications, advanced search, users, roles and groups.
+- **Admin Portal** (`/admin/*`, opens on Jobs): staff manage jobs, case files, candidates, applications, advanced search, staff users and roles.
 
 Every job automatically gets a **case file**, and every application automatically gets its own **application folder** inside that case file.
 
@@ -49,7 +49,7 @@ npm install
 cp .env.example .env          # fill in the Supabase URL/keys and database URLs (see comments in the file)
 npm run db:migrate            # applies prisma/migrations (prisma migrate deploy)
 npm run setup:storage         # creates the private "candidate-documents" bucket
-npm run create-super-admin -- you@company.com "First" "Last"   # sends an invite email
+npm run create-super-admin -- you@company.com "First" "Last" "Initial-Password1"   # creates the first login
 npm run db:seed               # optional demo data (see below)
 npm run dev                   # http://localhost:3000 — staff sign-in at /admin/login
 ```
@@ -58,7 +58,7 @@ npm run dev                   # http://localhost:3000 — staff sign-in at /admi
 
 `npm run db:seed` always syncs permissions and the built-in roles, so it is safe to run after every deploy. It only creates demo records when the database has no jobs yet:
 
-- 8 US/Canadian jobs (draft, open, closed), 4 groups, 5 staff, 10 candidates and 11 applications across all statuses.
+- 8 US/Canadian jobs (draft, open, closed), 5 staff, 10 candidates and 11 applications across all statuses.
 - With `SEED_DEMO_PASSWORD` set (and the Supabase keys), demo users get real logins and sample PDF resumes:
   - Staff: `admin@`, `ops@`, `emma@`, `marcus@`, `aisha@` + `SEED_EMAIL_DOMAIN` (default `example.com`).
   - Candidates: e.g. `john.smith@`, `priya.patel@`.
@@ -94,7 +94,6 @@ Authentication → Email Templates. Server-side apps should use token-hash links
 | Template | Link `href` |
 |---|---|
 | Confirm signup | `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/candidate/profile?welcome=1` |
-| Invite user (staff) | `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/reset-password?welcome=1` |
 | Reset password | `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password` |
 
 (`/auth/confirm` also accepts the default PKCE `?code=` links as a fallback.)
@@ -143,7 +142,7 @@ npm run typecheck && npm run lint
 2. Import the repo into Vercel and set every variable from `.env.example` (Production and Preview). Set `NEXT_PUBLIC_SITE_URL` to the production URL, and `CRON_SECRET` to a long random string.
 3. Run migrations from CI or your machine before (or as part of) each release: `DIRECT_URL=... DATABASE_URL=... npm run db:migrate`. Then run `npm run db:seed` without `SEED_DEMO_PASSWORD`. On a database that already has jobs, this only syncs roles and permissions.
 4. `npm run setup:storage` once per environment.
-5. `npm run create-super-admin -- owner@company.com "First" "Last"`.
+5. `npm run create-super-admin -- owner@company.com "First" "Last" "Initial-Password1"` (password: at least 10 characters with a letter and a number). Further staff are created from Admin → Users.
 6. `vercel.json` schedules `/api/cron/cleanup-uploads` daily. It removes uploads never attached to a profile or application (interrupted uploads or failed submissions).
 
 **Production checklist:**
@@ -168,19 +167,19 @@ src/
 │   ├── candidate/           dashboard, applications, profile (requires a candidate session)
 │   ├── admin/(auth)/        /admin/login, /admin/forbidden
 │   ├── admin/(portal)/      jobs (+ add-candidate), case-files (job folders → application folders), applications, candidates,
-│   │                        search, users, roles (+ groups)
+│   │                        search, users, roles
 │   ├── auth/                /auth/confirm (email links), /auth/signout
 │   └── api/                 /api/documents/[id] (secure download), /api/cron/cleanup-uploads
 ├── components/              ui/ (design system), forms/, jobs/, candidates/, applications/, documents/, admin/, layout/
 ├── modules/
-│   ├── access-control/      permissions & built-in roles, staff context, job scoping, users/roles/groups admin
+│   ├── access-control/      permissions & built-in roles, staff context, job scoping, user and role admin
 │   ├── auth/                session guards, candidate provisioning, login/register/reset actions
 │   ├── jobs/ candidates/ applications/ case-files/ documents/ search/
 │   │                        each module: schemas.ts (Zod, shared), service.ts/queries.ts (server), actions.ts (Server Actions)
 ├── lib/                     prisma, supabase clients, env, formatting, validation helpers, rate limiting
 └── config/                  site/contact info, US states & CA provinces, enum labels
 prisma/                      schema.prisma, migrations/, seed.ts
-scripts/                     setup-storage.ts, create-super-admin.ts
+scripts/                     setup-storage.ts, create-super-admin.ts, supabase-admin.ts (Node 20 WebSocket shim)
 tests/                       unit/, integration/, e2e/
 ```
 
@@ -235,7 +234,14 @@ Case files and folders are rows linked by foreign keys: Job → CaseFile (1:1) �
 ### Access control
 
 - Roles map to permissions (`src/modules/access-control/permissions.ts`), which are synced to the database by the seed.
-- Without `job.view_all`, staff only see jobs they created, jobs assigned to them, or jobs assigned to one of their groups (and those jobs' applications and case files).
+- **Permissions (18):**
+  - Jobs: `job.view_all`, `job.create`, `job.edit`, `job.publish`, `job.close`
+  - Candidates: `candidate.view`, `candidate.add`, `candidate.edit`
+  - Applications: `application.view`, `application.create` (add candidates to jobs), `application.update_status`, `application.assign`, `application.note`
+  - Case files and documents: `case_file.view`, `document.view` (open and download resumes)
+  - Administration: `user.manage`, `role.manage`, `role.delete` (delete unused custom roles; built-in roles cannot be deleted)
+- **Staff users** are created directly in Admin → Users, with an initial password set by the admin; there are no invitation emails. Admins can set a new password on a user's page, and deactivating a user blocks their login immediately.
+- Without `job.view_all`, staff only see jobs they created or are the assigned recruiter for (and those jobs' applications and case files).
 - The candidate talent pool is visible to everyone with `candidate.view`, but a candidate's applications are filtered by job scope.
 - Guards:
   - The Super Admin role is locked.
@@ -263,7 +269,7 @@ Case files and folders are rows linked by foreign keys: Job → CaseFile (1:1) �
 
 ### Rate limiting
 
-A Postgres fixed-window counter (no Redis) covers login, registration, password reset, applications and uploads.
+A Postgres fixed-window counter (no Redis) covers sign-in, registration, password reset, applications and uploads. Sign-in counts **failed** attempts only (10 per email and 50 per IP per 15 minutes), so an office sharing one IP is never locked out by normal use.
 
 ### Time zones
 
@@ -278,6 +284,6 @@ A Postgres fixed-window counter (no Redis) covers login, registration, password 
 - **Countries:** jobs are limited to the United States and Canada. Candidates may be located elsewhere (country "Other", with international phone numbers).
 - **Work authorization:** only a country and a general status are collected. No immigration documents or ID numbers.
 - **Internal candidates:** a portal login is never created automatically. Recruiters must record a consent or representation basis when adding a candidate to a job.
-- **Removed by request:** client management, the audit log and in-app privacy requests (migration `20261104000000_remove_clients_audit_privacy`). Jobs are no longer linked to a client. Candidates send access, correction or deletion requests to the privacy email shown on the privacy notice, and staff handle them manually. The included privacy notice is a template and does not establish legal compliance (PIPEDA, Quebec Law 25, provincial PIPA, US state laws).
+- **Removed by request:** client management, the audit log and in-app privacy requests (migration `20261104000000_remove_clients_audit_privacy`), recruitment groups (migration `20261105000000_remove_groups`), and the built-in Candidate role (migration `20261106000000_remove_candidate_role`; candidates are identified by their account type, which is what keeps them out of the admin portal). Jobs are no longer linked to a client. Candidates send access, correction or deletion requests to the privacy email shown on the privacy notice, and staff handle them manually. The included privacy notice is a template and does not establish legal compliance (PIPEDA, Quebec Law 25, provincial PIPA, US state laws).
 - **Out of scope by design:** AI screening or ranking, workflow builders, duplicate-merge tooling, extra search infrastructure.
 - **Dependency advisories (at time of writing):** `npm audit` reports issues only in build-time or dev tooling (PostCSS bundled inside Next's build, Prisma CLI's config loader, ESLint's `minimatch`). None of these ship in the runtime bundle.

@@ -24,7 +24,7 @@ import { LiveSearchForm } from "@/components/forms/live-search-form";
 export const metadata: Metadata = { title: "Add candidate to job" };
 
 export default async function AddCandidateToJobPage({ params, searchParams }: { params: Promise<{ jobId: string }>; searchParams: Promise<SearchParams> }) {
-  const ctx = await requireStaff(PERMISSIONS.CANDIDATE_ADD);
+  const ctx = await requireStaff(PERMISSIONS.APPLICATION_CREATE);
   const job = await getAdminJob(ctx, (await params).jobId);
   if (!job) notFound();
   const sp = await searchParams;

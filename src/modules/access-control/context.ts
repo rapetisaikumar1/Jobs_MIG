@@ -12,7 +12,6 @@ export type StaffContext = {
   permissions: Set<Permission>;
   roleKeys: string[];
   roleNames: string[];
-  groupIds: string[];
   isSuperAdmin: boolean;
   can: (permission: Permission) => boolean;
 };
@@ -28,7 +27,6 @@ const loadStaff = cache(async (): Promise<StaffLookup> => {
     where: { id: authUser.id },
     include: {
       roles: { include: { role: { include: { permissions: { include: { permission: true } } } } } },
-      groups: { select: { groupId: true } },
     },
   });
   if (!user || user.type !== "STAFF" || !user.isActive) return { status: "not-staff" };
@@ -44,7 +42,6 @@ const loadStaff = cache(async (): Promise<StaffLookup> => {
       permissions,
       roleKeys,
       roleNames: user.roles.map((ur) => ur.role.name),
-      groupIds: user.groups.map((g) => g.groupId),
       isSuperAdmin: roleKeys.includes(SYSTEM_ROLE_KEYS.SUPER_ADMIN),
       can: (permission) => permissions.has(permission),
     },

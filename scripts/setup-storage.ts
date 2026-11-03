@@ -2,15 +2,12 @@
  * Creates (or updates) the private Supabase Storage bucket for candidate documents.
  * Usage: npm run setup:storage
  */
-import { createClient } from "@supabase/supabase-js";
+import { scriptSupabaseAdmin } from "./supabase-admin";
 import { ALLOWED_MIME_TYPES, MAX_FILE_BYTES } from "../src/modules/documents/file-rules";
 
 async function main() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
   const bucket = process.env.SUPABASE_DOCUMENTS_BUCKET ?? "candidate-documents";
-  const supabase = createClient(url, key, { auth: { persistSession: false } });
+  const supabase = scriptSupabaseAdmin();
 
   const options = { public: false, fileSizeLimit: MAX_FILE_BYTES, allowedMimeTypes: ALLOWED_MIME_TYPES };
   const { data: existing } = await supabase.storage.getBucket(bucket);

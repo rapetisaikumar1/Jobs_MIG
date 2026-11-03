@@ -18,7 +18,6 @@ describe("built-in roles", () => {
     expect(p).not.toContain(PERMISSIONS.JOB_VIEW_ALL);
     expect(p).not.toContain(PERMISSIONS.JOB_CREATE);
   });
-  it("Candidate role has no staff permissions", () => expect(SYSTEM_ROLES.CANDIDATE.permissions).toEqual([]));
   it("ignores unknown permission codes", () => {
     expect([...resolvePermissions([["job.create", "made.up"]])]).toEqual(["job.create"]);
   });
@@ -39,4 +38,27 @@ describe("candidate-facing status", () => {
 describe("redirect safety", () => {
   it.each(["https://evil.com", "//evil.com", "/\\evil.com", ""])("rejects %s", (next) => expect(safeNextPath(next, "/x")).toBe("/x"));
   it("keeps relative paths", () => expect(safeNextPath("/jobs/MIG-JOB-000001/apply", "/x")).toBe("/jobs/MIG-JOB-000001/apply"));
+});
+
+describe("permission catalogue", () => {
+  it("every permission has a description and appears in exactly one group", async () => {
+    const { ALL_PERMISSIONS, PERMISSION_DESCRIPTIONS, PERMISSION_GROUPS } = await import("@/modules/access-control/permissions");
+    const grouped = PERMISSION_GROUPS.flatMap((g) => g.permissions);
+    expect(grouped.sort()).toEqual([...ALL_PERMISSIONS].sort());
+    for (const p of ALL_PERMISSIONS) expect(PERMISSION_DESCRIPTIONS[p]).toBeTruthy();
+  });
+  it("built-in Admin and Recruiter keep the actions they had", () => {
+    for (const p of [PERMISSIONS.APPLICATION_CREATE, PERMISSIONS.APPLICATION_NOTE, PERMISSIONS.APPLICATION_ASSIGN, PERMISSIONS.DOCUMENT_VIEW]) {
+      expect(SYSTEM_ROLES.ADMIN.permissions).toContain(p);
+      expect(SYSTEM_ROLES.RECRUITER.permissions).toContain(p);
+    }
+  });
+});
+
+describe("role deletion permission", () => {
+  it("is its own permission, granted only to Super Admin by default", () => {
+    expect(SYSTEM_ROLES.SUPER_ADMIN.permissions).toContain(PERMISSIONS.ROLE_DELETE);
+    expect(SYSTEM_ROLES.ADMIN.permissions).not.toContain(PERMISSIONS.ROLE_DELETE);
+    expect(SYSTEM_ROLES.RECRUITER.permissions).not.toContain(PERMISSIONS.ROLE_DELETE);
+  });
 });

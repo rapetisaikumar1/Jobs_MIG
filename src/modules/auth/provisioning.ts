@@ -3,7 +3,6 @@ import { Prisma, type Country, type User } from "@prisma/client";
 import type { User as AuthUser } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/format";
-import { SYSTEM_ROLE_KEYS } from "@/modules/access-control/permissions";
 import { refreshCandidateSearchVector } from "@/modules/candidates/search-vector";
 
 /** Metadata stored on the Supabase Auth user at registration. */
@@ -35,7 +34,6 @@ export async function ensureCandidateAccount(authUser: AuthUser): Promise<User |
 
   try {
     const { user, profileId } = await prisma.$transaction(async (tx) => {
-      const candidateRole = await tx.role.findUnique({ where: { key: SYSTEM_ROLE_KEYS.CANDIDATE } });
       const user = await tx.user.create({
         data: {
           id: authUser.id,
@@ -43,7 +41,6 @@ export async function ensureCandidateAccount(authUser: AuthUser): Promise<User |
           firstName: meta.first_name?.trim() || "Candidate",
           lastName: meta.last_name?.trim() || "",
           type: "CANDIDATE",
-          roles: candidateRole ? { create: { roleId: candidateRole.id } } : undefined,
         },
       });
 

@@ -16,7 +16,7 @@ const NAV: (AdminNavItem & { permission?: Permission })[] = [
   { href: "/admin/candidates", label: "Candidates", icon: "candidates", section: "Recruitment", permission: P.CANDIDATE_VIEW },
   { href: "/admin/search", label: "Advanced search", icon: "search", section: "Recruitment", permission: P.CANDIDATE_VIEW },
   { href: "/admin/users", label: "Users", icon: "users", section: "Administration", permission: P.USER_MANAGE },
-  { href: "/admin/roles", label: "Roles & groups", icon: "roles", section: "Administration", permission: P.ROLE_MANAGE },
+  { href: "/admin/roles", label: "Roles", icon: "roles", section: "Administration", permission: P.ROLE_MANAGE },
 ];
 
 export default async function AdminPortalLayout({ children }: { children: React.ReactNode }) {

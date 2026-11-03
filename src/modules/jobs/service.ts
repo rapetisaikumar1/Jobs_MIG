@@ -38,10 +38,6 @@ async function validateReferences(input: JobInput) {
     const recruiter = await prisma.user.findFirst({ where: { id: input.assignedRecruiterId, type: "STAFF", isActive: true } });
     if (!recruiter) throw new AppError("Select an active staff member as the assigned recruiter.");
   }
-  if (input.groupIds.length) {
-    const count = await prisma.group.count({ where: { id: { in: input.groupIds } } });
-    if (count !== new Set(input.groupIds).size) throw new AppError("One or more selected groups no longer exist.");
-  }
 }
 
 /**
@@ -58,7 +54,6 @@ export async function createJob(ctx: StaffContext, input: JobInput) {
         status: "DRAFT",
         createdById: ctx.user.id,
         caseFile: { create: {} },
-        groups: { create: [...new Set(input.groupIds)].map((groupId) => ({ groupId })) },
       },
       include: { caseFile: true },
     });
@@ -73,10 +68,6 @@ export async function updateJob(ctx: StaffContext, jobId: string, input: JobInpu
   await validateReferences(input);
   return prisma.$transaction(async (tx) => {
     const job = await tx.job.update({ where: { id: jobId }, data: jobData(input) });
-    await tx.jobGroup.deleteMany({ where: { jobId } });
-    if (input.groupIds.length) {
-      await tx.jobGroup.createMany({ data: [...new Set(input.groupIds)].map((groupId) => ({ jobId, groupId })) });
-    }
     await replaceJobSkills(tx, jobId, input.requiredSkills, input.preferredSkills);
     return job;
   });

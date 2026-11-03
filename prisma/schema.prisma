@@ -121,7 +121,7 @@ enum DocumentStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Users, roles, permissions, groups
+// Users, roles, permissions
 // ---------------------------------------------------------------------------
 
 model User {
@@ -135,7 +135,6 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   roles            UserRole[]
-  groups           UserGroup[]
   candidateProfile CandidateProfile? @relation("CandidateAccount")
 
   createdJobs          Job[]                      @relation("JobCreatedBy")
@@ -202,32 +201,6 @@ model UserRole {
   @@map("user_roles")
 }
 
-model Group {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-
-  users UserGroup[]
-  jobs  JobGroup[]
-
-  @@map("groups")
-}
-
-model UserGroup {
-  userId  String   @map("user_id") @db.Uuid
-  groupId String   @map("group_id") @db.Uuid
-  addedAt DateTime @default(now()) @map("added_at") @db.Timestamptz(3)
-
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-
-  @@id([userId, groupId])
-  @@index([groupId])
-  @@map("user_groups")
-}
-
 // ---------------------------------------------------------------------------
 // Jobs
 // ---------------------------------------------------------------------------
@@ -266,7 +239,6 @@ model Job {
   assignedRecruiter User?         @relation("JobRecruiter", fields: [assignedRecruiterId], references: [id], onDelete: SetNull)
   createdBy         User          @relation("JobCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   skills            JobSkill[]
-  groups            JobGroup[]
   caseFile          CaseFile?
   applications      Application[]
 
@@ -276,18 +248,6 @@ model Job {
   @@index([workArrangement])
   @@index([employmentType])
   @@map("jobs")
-}
-
-model JobGroup {
-  jobId   String @map("job_id") @db.Uuid
-  groupId String @map("group_id") @db.Uuid
-
-  job   Job   @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-
-  @@id([jobId, groupId])
-  @@index([groupId])
-  @@map("job_groups")
 }
 
 model Skill {

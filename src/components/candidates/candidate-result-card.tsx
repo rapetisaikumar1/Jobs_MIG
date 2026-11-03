@@ -13,7 +13,7 @@ import type { ApplicationStatus } from "@prisma/client";
 const iconButton = "inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
 
 /** Search result card (LinkedIn Recruiter style): identity, key facts, skills, recent applications and actions. */
-export function CandidateResultCard({ c }: { c: CandidateRow }) {
+export function CandidateResultCard({ c, canViewDocuments = true, canAddToJob = true }: { c: CandidateRow; canViewDocuments?: boolean; canAddToJob?: boolean }) {
   const primary = c.skills.filter((s) => s.level === "PRIMARY").map((s) => s.skill.name);
   const other = c.skills.filter((s) => s.level !== "PRIMARY").map((s) => s.skill.name);
   const name = fullName(c);
@@ -34,13 +34,15 @@ export function CandidateResultCard({ c }: { c: CandidateRow }) {
         </div>
         <div className="flex items-center gap-1">
           <Link href={`/admin/candidates/${c.displayId}`} title="View profile" aria-label={`View profile of ${name}`} className={iconButton}><Eye className="size-4" /></Link>
-          {c.defaultResumeId && (
+          {canViewDocuments && c.defaultResumeId && (
             <a href={`/api/documents/${c.defaultResumeId}?inline=1`} target="_blank" rel="noopener noreferrer" title="Open resume" aria-label="Open resume" className={iconButton}><FileText className="size-4" /></a>
           )}
           <Link href={`/admin/candidates/${c.displayId}#applications`} title="Applications" aria-label="Applications" className={iconButton}><ClipboardList className="size-4" /></Link>
-          <Link href={`/admin/candidates/${c.displayId}/add-to-job`} className={buttonVariants({ variant: "outline", size: "sm", className: "ml-1" })}>
-            <UserPlus aria-hidden /> Add to job
-          </Link>
+          {canAddToJob && (
+            <Link href={`/admin/candidates/${c.displayId}/add-to-job`} className={buttonVariants({ variant: "outline", size: "sm", className: "ml-1" })}>
+              <UserPlus aria-hidden /> Add to job
+            </Link>
+          )}
         </div>
       </div>
 

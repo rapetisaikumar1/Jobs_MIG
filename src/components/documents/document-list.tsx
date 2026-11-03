@@ -22,7 +22,7 @@ export function DocumentLinks({ doc }: { doc: DocumentRow }) {
   );
 }
 
-export function DocumentList({ documents, emptyText = "No documents." }: { documents: DocumentRow[]; emptyText?: string }) {
+export function DocumentList({ documents, emptyText = "No documents.", canOpen = true }: { documents: DocumentRow[]; emptyText?: string; canOpen?: boolean }) {
   if (!documents.length) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   return (
     <ul className="divide-y rounded-md border">
@@ -37,7 +37,7 @@ export function DocumentList({ documents, emptyText = "No documents." }: { docum
               </span>
             </span>
           </span>
-          <DocumentLinks doc={doc} />
+          {canOpen ? <DocumentLinks doc={doc} /> : <span className="text-xs text-muted-foreground">No access</span>}
         </li>
       ))}
     </ul>

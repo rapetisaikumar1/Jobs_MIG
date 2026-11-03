@@ -3,10 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { AppError } from "@/lib/action-result";
 import { getClientIp } from "@/lib/request";
 
-type Rule = { limit: number; windowSeconds: number };
+/** `limit` applies per subject (e.g. email); `ipLimit` (default `limit`) per client IP. */
+type Rule = { limit: number; windowSeconds: number; ipLimit?: number };
 
 export const RATE_LIMITS = {
-  login: { limit: 10, windowSeconds: 15 * 60 },
+  // Counts failed sign-ins only (see checkRateLimit / recordRateLimitHit), so offices behind one IP are not locked out.
+  login: { limit: 10, windowSeconds: 15 * 60, ipLimit: 50 },
   register: { limit: 5, windowSeconds: 60 * 60 },
   passwordReset: { limit: 5, windowSeconds: 60 * 60 },
   apply: { limit: 20, windowSeconds: 60 * 60 },
@@ -35,14 +37,38 @@ export async function hitRateLimit(key: string, rule: Rule): Promise<{ allowed: 
   return { allowed: count <= rule.limit, count };
 }
 
-/** Throws a user-safe error when the caller (by IP and optional subject) exceeds the rule. */
-export async function enforceRateLimit(name: keyof typeof RATE_LIMITS, subject?: string): Promise<void> {
-  const rule = RATE_LIMITS[name];
+const TOO_MANY = "Too many attempts. Please wait a while and try again.";
+
+async function ruleKeys(name: keyof typeof RATE_LIMITS, subject?: string) {
+  const rule: Rule = RATE_LIMITS[name];
   const ip = await getClientIp();
-  const keys = [`${name}:ip:${ip}`];
-  if (subject) keys.push(`${name}:sub:${subject.toLowerCase()}`);
-  for (const key of keys) {
-    const { allowed } = await hitRateLimit(key, rule);
-    if (!allowed) throw new AppError("Too many attempts. Please wait a while and try again.");
+  const keys: { key: string; limit: number }[] = [{ key: `${name}:ip:${ip}`, limit: rule.ipLimit ?? rule.limit }];
+  if (subject) keys.push({ key: `${name}:sub:${subject.toLowerCase()}`, limit: rule.limit });
+  return { rule, keys };
+}
+
+/** Counts this attempt and throws a user-safe error when the caller (by IP and optional subject) exceeds the rule. */
+export async function enforceRateLimit(name: keyof typeof RATE_LIMITS, subject?: string): Promise<void> {
+  const { rule, keys } = await ruleKeys(name, subject);
+  for (const { key, limit } of keys) {
+    const { allowed } = await hitRateLimit(key, { ...rule, limit });
+    if (!allowed) throw new AppError(TOO_MANY);
   }
+}
+
+/** Throws if the caller is already over the limit, without counting this attempt. */
+export async function checkRateLimit(name: keyof typeof RATE_LIMITS, subject?: string): Promise<void> {
+  const { rule, keys } = await ruleKeys(name, subject);
+  const rows = await prisma.rateLimit.findMany({ where: { key: { in: keys.map((k) => k.key) } } });
+  const windowStart = Date.now() - rule.windowSeconds * 1000;
+  for (const { key, limit } of keys) {
+    const row = rows.find((r) => r.key === key);
+    if (row && row.windowStart.getTime() >= windowStart && row.count >= limit) throw new AppError(TOO_MANY);
+  }
+}
+
+/** Counts one attempt (e.g. a failed sign-in) against the rule. */
+export async function recordRateLimitHit(name: keyof typeof RATE_LIMITS, subject?: string): Promise<void> {
+  const { rule, keys } = await ruleKeys(name, subject);
+  for (const { key, limit } of keys) await hitRateLimit(key, { ...rule, limit });
 }

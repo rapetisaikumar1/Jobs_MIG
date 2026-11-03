@@ -28,6 +28,7 @@ import type { StaffContext } from "@/modules/access-control/context";
 import { resolvePermissions, SYSTEM_ROLES } from "@/modules/access-control/permissions";
 import { assertJobAccess } from "@/modules/access-control/scope";
 import { syncRolesAndPermissions } from "@/modules/access-control/sync";
+import { deleteRole, saveRole } from "@/modules/access-control/admin-service";
 import { addCandidateToJob, submitPortalApplication, updateApplicationStatus } from "@/modules/applications/service";
 import { createInternalCandidate, updateOwnProfile } from "@/modules/candidates/service";
 import { candidateSelfProfileSchema, staffCandidateSchema } from "@/modules/candidates/schemas";
@@ -44,11 +45,11 @@ import { hitRateLimit } from "@/lib/rate-limit";
 const enabled = !!process.env.TEST_DATABASE_URL;
 const PDF = new TextEncoder().encode("%PDF-1.4\n% test resume\n%%EOF\n");
 
-function ctxFor(user: User, role: keyof typeof SYSTEM_ROLES, groupIds: string[] = []): StaffContext {
+function ctxFor(user: User, role: keyof typeof SYSTEM_ROLES): StaffContext {
   const permissions = resolvePermissions([SYSTEM_ROLES[role].permissions]);
   return {
     user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName },
-    permissions, roleKeys: [role], roleNames: [SYSTEM_ROLES[role].name], groupIds,
+    permissions, roleKeys: [role], roleNames: [SYSTEM_ROLES[role].name],
     isSuperAdmin: role === "SUPER_ADMIN", can: (p) => permissions.has(p),
   };
 }
@@ -75,7 +76,6 @@ const candidateInput = (overrides: Record<string, unknown> = {}) =>
 let admin: StaffContext;
 let recruiter: StaffContext;
 let recruiterUser: User;
-let groupId: string;
 
 async function makeStaff(email: string, firstName: string) {
   return prisma.user.create({ data: { id: crypto.randomUUID(), email, firstName, lastName: "Test", type: "STAFF" } });
@@ -97,8 +97,7 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     await syncRolesAndPermissions(prisma);
     admin = ctxFor(await makeStaff("admin@test.dev", "Admin"), "ADMIN");
     recruiterUser = await makeStaff("recruiter@test.dev", "Rita");
-    groupId = (await prisma.group.create({ data: { name: "Canada Recruitment Team" } })).id;
-    recruiter = ctxFor(recruiterUser, "RECRUITER", [groupId]);
+    recruiter = ctxFor(recruiterUser, "RECRUITER");
   });
 
   it("creates a case file automatically for every new job", async () => {
@@ -218,7 +217,7 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
   });
 
   it("adds an internal candidate to a job with consent, and keeps the snapshot after profile edits", async () => {
-    const job = await createJob(admin, jobInput({ title: "Internal Add", groupIds: [groupId] }));
+    const job = await createJob(admin, jobInput({ title: "Internal Add", assignedRecruiterId: recruiterUser.id }));
     const candidate = await prisma.candidateProfile.findUniqueOrThrow({ where: { email: "sarah.wilson@example.com" } });
 
     const result = await addCandidateToJob(recruiter, {
@@ -248,15 +247,31 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     await expect(updateApplicationStatus(recruiter, { applicationId: app.id, status: "SUBMITTED_TO_CLIENT" })).rejects.toThrow();
   });
 
-  it("limits recruiters to jobs assigned to them or their groups", async () => {
+  it("limits recruiters to jobs they created or are assigned to", async () => {
     const other = await createJob(admin, jobInput({ title: "Not Yours" }));
     await expect(assertJobAccess(recruiter, other.id)).rejects.toBeInstanceOf(ForbiddenError);
     const app = await prisma.application.findFirstOrThrow({ where: { job: { title: "Portal Apply" } } });
     await expect(updateApplicationStatus(recruiter, { applicationId: app.id, status: "REJECTED" })).rejects.toBeInstanceOf(ForbiddenError);
 
-    const grouped = await createJob(admin, jobInput({ title: "Group Job", groupIds: [groupId] }));
-    await expect(assertJobAccess(recruiter, grouped.id)).resolves.toBeUndefined();
-    await expect(changeJobStatus(recruiter, grouped.id, "publish")).rejects.toBeInstanceOf(ForbiddenError);
+    const assigned = await createJob(admin, jobInput({ title: "Assigned Job", assignedRecruiterId: recruiterUser.id }));
+    await expect(assertJobAccess(recruiter, assigned.id)).resolves.toBeUndefined();
+    await expect(changeJobStatus(recruiter, assigned.id, "publish")).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("deletes custom roles only when unused, never built-in roles", async () => {
+    const builtIn = await prisma.role.findUniqueOrThrow({ where: { key: "RECRUITER" } });
+    await expect(deleteRole(admin, builtIn.id)).rejects.toThrow("Built-in roles cannot be deleted");
+
+    const role = await saveRole(admin, null, { name: "Temp Sourcer", permissions: ["candidate.view", "role.delete"] });
+    expect((await prisma.rolePermission.count({ where: { roleId: role.id } }))).toBe(2);
+    await prisma.userRole.create({ data: { userId: recruiterUser.id, roleId: role.id } });
+    await expect(deleteRole(admin, role.id)).rejects.toThrow("assigned to 1 user");
+
+    await prisma.userRole.delete({ where: { userId_roleId: { userId: recruiterUser.id, roleId: role.id } } });
+    const deleted = await deleteRole(admin, role.id);
+    expect(deleted.name).toBe("Temp Sourcer");
+    expect(await prisma.role.count({ where: { id: role.id } })).toBe(0);
+    expect(await prisma.rolePermission.count({ where: { roleId: role.id } })).toBe(0);
   });
 
   it("rate limits with a fixed window", async () => {

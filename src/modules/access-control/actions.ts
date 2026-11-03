@@ -8,23 +8,21 @@ import { uuid } from "@/lib/validation";
 import { requireStaffForAction } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
 import {
-  groupSchema,
   roleSchema,
+  staffPasswordSchema,
   staffUserCreateSchema,
   staffUserUpdateSchema,
-  type GroupFormValues,
   type RoleFormValues,
+  type StaffPasswordFormValues,
   type StaffUserCreateFormValues,
   type StaffUserUpdateFormValues,
 } from "@/modules/access-control/schemas";
 import {
   createStaffUser,
-  deleteGroup,
   deleteRole,
-  saveGroup,
   saveRole,
-  sendStaffPasswordReset,
   setStaffUserActive,
+  setStaffUserPassword,
   updateStaffUser,
 } from "@/modules/access-control/admin-service";
 
@@ -35,7 +33,7 @@ export async function createStaffUserAction(values: StaffUserCreateFormValues): 
     if (!parsed.success) return validationFailure(parsed.error);
     const user = await createStaffUser(ctx, parsed.data);
     revalidatePath("/admin/users");
-    return ok({ id: user.id }, `Invitation sent to ${user.email}.`);
+    return ok({ id: user.id }, `User ${user.email} created. They can sign in now.`);
   });
 }
 
@@ -62,12 +60,13 @@ export async function setStaffUserActiveAction(values: { userId: string; active:
   });
 }
 
-export async function sendStaffPasswordResetAction(values: { userId: string }): Promise<ActionResult> {
+export async function setStaffUserPasswordAction(values: StaffPasswordFormValues): Promise<ActionResult> {
   return runAction(async () => {
     const ctx = await requireStaffForAction(PERMISSIONS.USER_MANAGE);
-    const { userId } = userRef.parse(values);
-    await sendStaffPasswordReset(ctx, userId);
-    return ok(undefined, "Password reset email sent.");
+    const parsed = staffPasswordSchema.safeParse(values);
+    if (!parsed.success) return validationFailure(parsed.error);
+    await setStaffUserPassword(ctx, parsed.data.userId, parsed.data.password);
+    return ok(undefined, "Password updated. Share it with the user securely.");
   });
 }
 
@@ -84,29 +83,9 @@ export async function saveRoleAction(roleId: string | null, values: RoleFormValu
 
 export async function deleteRoleAction(values: { roleId: string }): Promise<ActionResult> {
   return runAction(async () => {
-    const ctx = await requireStaffForAction(PERMISSIONS.ROLE_MANAGE);
-    await deleteRole(ctx, uuid.parse(values.roleId));
-    revalidatePath("/admin/roles");
-    return ok(undefined, "Role deleted.");
-  });
-}
-
-export async function saveGroupAction(groupId: string | null, values: GroupFormValues): Promise<ActionResult<{ id: string }>> {
-  return runAction(async () => {
-    const ctx = await requireStaffForAction(PERMISSIONS.ROLE_MANAGE);
-    const parsed = groupSchema.safeParse(values);
-    if (!parsed.success) return validationFailure(parsed.error);
-    const group = await saveGroup(ctx, groupId ? uuid.parse(groupId) : null, parsed.data);
+    const ctx = await requireStaffForAction(PERMISSIONS.ROLE_DELETE);
+    const role = await deleteRole(ctx, uuid.parse(values.roleId));
     revalidatePath("/admin", "layout");
-    return ok({ id: group.id }, "Group saved.");
-  });
-}
-
-export async function deleteGroupAction(values: { groupId: string }): Promise<ActionResult> {
-  return runAction(async () => {
-    const ctx = await requireStaffForAction(PERMISSIONS.ROLE_MANAGE);
-    await deleteGroup(ctx, uuid.parse(values.groupId));
-    revalidatePath("/admin", "layout");
-    return ok(undefined, "Group deleted.");
+    return ok(undefined, `Role “${role.name}” deleted.`);
   });
 }
