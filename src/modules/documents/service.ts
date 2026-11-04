@@ -163,7 +163,19 @@ export async function deleteProfileDocument(documentId: string, candidateId: str
     where: { id: documentId, candidateId, applicationId: null, folderId: null },
   });
   if (!doc) throw new AppError("Document not found.");
-  await prisma.document.delete({ where: { id: doc.id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.document.delete({ where: { id: doc.id } }); // clears defaultResumeId if it was the default (FK SET NULL)
+    // Same rule as uploading: a candidate with resumes on file always has a default one.
+    const profile = await tx.candidateProfile.findUnique({ where: { id: candidateId }, select: { defaultResumeId: true } });
+    if (profile && !profile.defaultResumeId) {
+      const next = await tx.document.findFirst({
+        where: { candidateId, type: "RESUME", status: "ACTIVE", applicationId: null, folderId: null },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+      if (next) await tx.candidateProfile.update({ where: { id: candidateId }, data: { defaultResumeId: next.id } });
+    }
+  });
   await removeObjects([doc.storagePath]).catch((error) => console.error("[documents] remove failed", error));
 }
 
@@ -175,10 +187,17 @@ export async function cleanupAbandonedUploads(olderThanHours = 24): Promise<numb
     take: 500,
   });
   if (!stale.length) return 0;
+  // Delete the rows first and only remove the files of rows that were still PENDING: a form
+  // submitted at this moment may have just activated one of them, and its file must survive.
+  const deleted = await prisma.$queryRaw<{ storage_path: string }[]>`
+    DELETE FROM documents WHERE id = ANY(${stale.map((d) => d.id)}::uuid[]) AND status = 'PENDING'
+    RETURNING storage_path`;
   // Missing objects (upload never finished) are ignored by the storage API.
-  await removeObjects(stale.map((d) => d.storagePath));
-  const { count } = await prisma.document.deleteMany({
-    where: { id: { in: stale.map((d) => d.id) }, status: "PENDING" },
-  });
-  return count;
+  if (deleted.length) await removeObjects(deleted.map((d) => d.storage_path));
+  return deleted.length;
+}
+
+/** Rate-limit counters older than any window are dead weight; keep the table small. */
+export async function purgeExpiredRateLimits(): Promise<number> {
+  return prisma.$executeRaw`DELETE FROM rate_limits WHERE window_start < now() - interval '1 day'`;
 }

@@ -5,15 +5,45 @@ import { AppError, ForbiddenError } from "@/lib/action-result";
 import type { StaffContext } from "@/modules/access-control/context";
 import { LOCKED_ROLE_KEYS, SYSTEM_ROLE_KEYS } from "@/modules/access-control/permissions";
 
+// ----- Privilege containment -----
+// Anyone other than a Super Admin may only hand out, or manage accounts holding, permissions
+// they hold themselves. Otherwise a custom role with "user.manage" or "role.manage" could grant
+// itself everything (or take over a more privileged account by resetting its password).
+
+function assertWithinOwnPermissions(ctx: StaffContext, codes: Iterable<string>, message: string) {
+  if (ctx.isSuperAdmin) return;
+  for (const code of codes) {
+    if (!ctx.permissions.has(code as never)) throw new ForbiddenError(message);
+  }
+}
+
+async function permissionCodesOfUser(userId: string): Promise<string[]> {
+  const rows = await prisma.rolePermission.findMany({
+    where: { role: { users: { some: { userId } } } },
+    select: { permission: { select: { code: true } } },
+  });
+  return rows.map((r) => r.permission.code);
+}
+
 // ----- Staff users -----
 
 async function validateRoleAssignment(ctx: StaffContext, roleIds: string[]) {
-  const roles = await prisma.role.findMany({ where: { id: { in: roleIds } } });
+  const roles = await prisma.role.findMany({ where: { id: { in: roleIds } }, include: { permissions: { select: { permission: { select: { code: true } } } } } });
   if (roles.length !== new Set(roleIds).size) throw new AppError("One or more roles no longer exist.");
   if (roles.some((r) => r.key === SYSTEM_ROLE_KEYS.SUPER_ADMIN) && !ctx.isSuperAdmin) {
     throw new ForbiddenError("Only a Super Admin can grant the Super Admin role.");
   }
+  assertWithinOwnPermissions(
+    ctx,
+    roles.flatMap((r) => r.permissions.map((p) => p.permission.code)),
+    "You can only assign roles whose permissions you have yourself.",
+  );
   return roles;
+}
+
+async function assertCanManageAccount(ctx: StaffContext, userId: string) {
+  if (ctx.isSuperAdmin) return;
+  assertWithinOwnPermissions(ctx, await permissionCodesOfUser(userId), "Only a Super Admin can manage an account with more permissions than your own.");
 }
 
 async function countOtherActiveSuperAdmins(excludeUserId: string) {
@@ -84,6 +114,14 @@ export async function updateStaffUser(
   input: { userId: string; firstName: string; lastName: string; roleIds: string[] },
 ) {
   const { target, isSuperAdmin } = await loadStaffTarget(ctx, input.userId);
+  if (!ctx.isSuperAdmin && target.id === ctx.user.id) {
+    const current = new Set(target.roles.map((r) => r.roleId));
+    const next = new Set(input.roleIds);
+    if (current.size !== next.size || [...next].some((id) => !current.has(id))) {
+      throw new ForbiddenError("You can't change your own roles. Ask a Super Admin.");
+    }
+  }
+  await assertCanManageAccount(ctx, target.id);
   const roles = await validateRoleAssignment(ctx, input.roleIds);
   const remainsSuperAdmin = roles.some((r) => r.key === SYSTEM_ROLE_KEYS.SUPER_ADMIN);
   if (isSuperAdmin && !remainsSuperAdmin) {
@@ -106,6 +144,7 @@ export async function setStaffUserActive(ctx: StaffContext, userId: string, acti
   if (userId === ctx.user.id) throw new AppError("You cannot change the status of your own account.");
   const { isSuperAdmin } = await loadStaffTarget(ctx, userId);
   if (isSuperAdmin && !ctx.isSuperAdmin) throw new ForbiddenError("Only a Super Admin can change a Super Admin account.");
+  await assertCanManageAccount(ctx, userId);
   if (!active && isSuperAdmin && (await countOtherActiveSuperAdmins(userId)) === 0) {
     throw new AppError("At least one active Super Admin is required.");
   }
@@ -119,6 +158,7 @@ export async function setStaffUserActive(ctx: StaffContext, userId: string, acti
 export async function setStaffUserPassword(ctx: StaffContext, userId: string, password: string) {
   const { target, isSuperAdmin } = await loadStaffTarget(ctx, userId);
   if (isSuperAdmin && !ctx.isSuperAdmin) throw new ForbiddenError("Only a Super Admin can change a Super Admin's password.");
+  await assertCanManageAccount(ctx, userId);
   if (!target.isActive) throw new AppError("Reactivate the user before setting a password.");
   const { error } = await supabaseAdmin().auth.admin.updateUserById(userId, { password });
   if (error) throw new AppError(error.code === "weak_password" ? "The password is too weak." : `Could not set the password: ${error.message}`);
@@ -142,6 +182,7 @@ export async function saveRole(
   });
   if (sameName) throw new AppError(`A role named "${sameName.name}" already exists.`);
   const permissions = await prisma.permission.findMany({ where: { code: { in: input.permissions } } });
+  assertWithinOwnPermissions(ctx, permissions.map((p) => p.code), "You can only give a role permissions you have yourself.");
 
   return prisma.$transaction(async (tx) => {
     const role = roleId

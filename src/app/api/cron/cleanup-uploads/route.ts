@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { serverEnv } from "@/lib/env";
-import { cleanupAbandonedUploads } from "@/modules/documents/service";
+import { cleanupAbandonedUploads, purgeExpiredRateLimits } from "@/modules/documents/service";
 
 /** Daily job (Vercel Cron): removes uploads never attached to a profile or application. */
 export async function GET(request: NextRequest) {
@@ -12,6 +12,6 @@ export async function GET(request: NextRequest) {
     !!secret && provided.length === expected.length && timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
   if (!authorized) return new NextResponse("Unauthorized", { status: 401 });
 
-  const removed = await cleanupAbandonedUploads(24);
-  return NextResponse.json({ removed });
+  const [removed, rateLimitsPurged] = await Promise.all([cleanupAbandonedUploads(24), purgeExpiredRateLimits()]);
+  return NextResponse.json({ removed, rateLimitsPurged });
 }

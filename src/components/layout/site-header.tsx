@@ -3,14 +3,13 @@ import { Menu } from "lucide-react";
 import { Logo } from "@/components/shared/logo";
 import { Avatar } from "@/components/shared/avatar";
 import { buttonVariants } from "@/components/ui/button";
-import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/modules/auth/session";
+import { getAppUser, getAuthUser } from "@/modules/auth/session";
 import { logoutAction } from "@/modules/auth/actions";
 
 async function getViewer() {
   const user = await getAuthUser().catch(() => null);
   if (!user) return null;
-  const appUser = await prisma.user.findUnique({ where: { id: user.id }, select: { type: true, firstName: true, lastName: true } });
+  const appUser = await getAppUser(user.id); // same request-scoped lookup the candidate pages use
   return { type: appUser?.type ?? "CANDIDATE", name: appUser ? `${appUser.firstName} ${appUser.lastName}` : (user.email ?? "") };
 }
 
@@ -18,7 +17,7 @@ export async function SiteHeader() {
   const viewer = await getViewer();
   const navLinks = [
     { href: "/jobs", label: "Find jobs" },
-    ...(viewer?.type === "CANDIDATE" ? [{ href: "/candidate/dashboard", label: "My applications" }] : []),
+    ...(viewer?.type === "CANDIDATE" ? [{ href: "/candidate/dashboard", label: "My account" }] : []),
     ...(viewer?.type === "STAFF" ? [{ href: "/admin/jobs", label: "Admin portal" }] : []),
   ];
 

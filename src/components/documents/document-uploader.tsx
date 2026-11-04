@@ -81,15 +81,17 @@ export function DocumentUploader({
       <label
         htmlFor={id}
         className={cn(
-          "flex cursor-pointer items-center gap-3 rounded-md border border-dashed px-3 py-3 text-sm transition-colors hover:bg-muted/50",
+          "flex min-w-0 cursor-pointer items-center gap-3 rounded-md border border-dashed bg-background px-3 py-3 text-sm transition-colors hover:border-primary/50 hover:bg-muted/50",
           invalid && "border-destructive",
           busy && "pointer-events-none opacity-70",
         )}
       >
-        {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <FileUp className="size-4" aria-hidden />}
-        <span>
-          {busy ? "Uploading…" : "Choose a file"}
-          <span className="ml-2 text-xs text-muted-foreground">{allowedLabel(type)} · max 10 MB</span>
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <FileUp className="size-4" aria-hidden />}
+        </span>
+        <span className="min-w-0">
+          <span className="block font-medium">{busy ? "Uploading…" : "Choose a file"}</span>
+          <span className="block text-xs text-muted-foreground">{allowedLabel(type)} · max 10 MB</span>
         </span>
       </label>
       <input

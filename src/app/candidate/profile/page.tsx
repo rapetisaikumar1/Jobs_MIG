@@ -19,11 +19,11 @@ export default async function CandidateProfilePage({ searchParams }: { searchPar
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
       <div className="min-w-0 space-y-6">
-        {welcome && <Alert variant="success">Your email is verified. Complete your profile to start applying.</Alert>}
+        {welcome && <Alert variant="success">Your account is ready. Complete your profile to start applying.</Alert>}
         <Card>
           <CardHeader>
-            <CardTitle>My profile</CardTitle>
-            <CardDescription>Candidate ID {profile.displayId} · {profile.email}</CardDescription>
+            <CardTitle>Profile details</CardTitle>
+            <CardDescription>Your profile is shared with recruiters each time you apply. Keep it up to date.</CardDescription>
           </CardHeader>
           <CardContent>
             <CandidateProfileForm

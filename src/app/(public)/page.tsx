@@ -8,18 +8,14 @@ import { siteConfig } from "@/config/site";
 import { formatLocation } from "@/config/locations";
 import { formatDate } from "@/lib/format";
 import { getViewerTimeZone } from "@/lib/request";
-import { listHomepageJobs, listPublicJobs } from "@/modules/jobs/queries";
+import { countOpenJobs, listHomepageJobs } from "@/modules/jobs/queries";
 
 export const dynamic = "force-dynamic";
 
 const POPULAR = ["Java", "Data Engineer", "DevOps", "React", "Python", ".NET", "QA Automation"];
 
 export default async function HomePage() {
-  const [{ featured, recent }, timeZone, { total }] = await Promise.all([
-    listHomepageJobs(),
-    getViewerTimeZone(),
-    listPublicJobs({}, 1, 1),
-  ]);
+  const [{ featured, recent }, timeZone, total] = await Promise.all([listHomepageJobs(), getViewerTimeZone(), countOpenJobs()]);
   const featuredIds = new Set(featured.map((j) => j.id));
   const recentOnly = recent.filter((j) => !featuredIds.has(j.id));
 

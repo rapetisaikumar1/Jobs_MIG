@@ -11,6 +11,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Nested include/select trees load as one joined query instead of one query per relation level
+  // (the database is a network round trip away, so this removes most per-page waiting).
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -248,6 +251,10 @@ model Job {
   @@index([workArrangement])
   @@index([employmentType])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "jobs_title_trgm_idx")
+  @@index([createdById]) // job scope: "created by me OR assigned to me"
+  @@index([createdAt(sort: Desc)]) // admin jobs list order
+  @@index([displayId(ops: raw("gin_trgm_ops"))], type: Gin, map: "jobs_display_id_trgm_idx")
+  @@index([city(ops: raw("gin_trgm_ops"))], type: Gin, map: "jobs_city_trgm_idx")
   @@map("jobs")
 }
 
@@ -350,6 +357,12 @@ model CandidateProfile {
   @@index([lastName(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_last_name_trgm_idx")
   @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_email_trgm_idx")
   @@index([displayId(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_display_id_trgm_idx")
+  @@index([createdAt(sort: Desc)]) // search sort: newest
+  @@index([lastName, firstName]) // search sort: name
+  @@index([phone(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_phone_trgm_idx")
+  @@index([alternatePhone(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_alternate_phone_trgm_idx")
+  @@index([currentTitle(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_current_title_trgm_idx")
+  @@index([professionalTitle(ops: raw("gin_trgm_ops"))], type: Gin, map: "candidate_profiles_professional_title_trgm_idx")
   @@map("candidate_profiles")
 }
 
@@ -414,6 +427,9 @@ model Application {
   @@index([appliedAt(sort: Desc)])
   @@index([assignedRecruiterId])
   @@index([displayId(ops: raw("gin_trgm_ops"))], type: Gin, map: "applications_display_id_trgm_idx")
+  @@index([jobId, appliedAt(sort: Desc)]) // a job's applications, newest first
+  @@index([assignedRecruiterId, appliedAt(sort: Desc)]) // "assigned to me", newest first
+  @@index([source, appliedAt(sort: Desc)]) // source filter
   @@map("applications")
 }
 
@@ -426,6 +442,8 @@ model CaseFile {
   job     Job          @relation(fields: [jobId], references: [id], onDelete: Restrict)
   folders CaseFolder[]
 
+  @@index([createdAt(sort: Desc)]) // case files list order
+  @@index([displayId(ops: raw("gin_trgm_ops"))], type: Gin, map: "case_files_display_id_trgm_idx")
   @@map("case_files")
 }
 
@@ -441,6 +459,7 @@ model CaseFolder {
   documents   Document[]
 
   @@index([caseFileId])
+  @@index([caseFileId, createdAt]) // folders of a case file in order
   @@map("case_folders")
 }
 

@@ -11,9 +11,9 @@ import {
   formatExperienceRange,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { PublicJob } from "@/modules/jobs/queries";
+import type { PublicJobCard } from "@/modules/jobs/queries";
 
-export function publicCompensation(job: Pick<PublicJob, "salaryPublic" | "compensationMin" | "compensationMax" | "currency" | "compensationType">) {
+export function publicCompensation(job: Pick<PublicJobCard, "salaryPublic" | "compensationMin" | "compensationMax" | "currency" | "compensationType">) {
   if (!job.salaryPublic) return null;
   return formatCompensation(decimalToNumber(job.compensationMin), decimalToNumber(job.compensationMax), job.currency, job.compensationType);
 }
@@ -32,7 +32,7 @@ export function JobPill({ children, className }: { children: React.ReactNode; cl
 }
 
 /** Compact single-row job listing (Indeed/LinkedIn style): three short lines per job. */
-export function JobCard({ job, timeZone, applied }: { job: PublicJob; timeZone: string; applied?: boolean }) {
+export function JobCard({ job, timeZone, applied }: { job: PublicJobCard; timeZone: string; applied?: boolean }) {
   const pay = publicCompensation(job);
   const required = job.skills.filter((s) => s.type === "REQUIRED").map((s) => s.skill.name);
   return (

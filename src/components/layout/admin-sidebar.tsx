@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LinkPending } from "@/components/layout/link-pending";
 
 const ICONS = {
   jobs: Briefcase,
@@ -55,6 +56,7 @@ export function AdminSidebar({ items }: { items: AdminNavItem[] }) {
             >
               <Icon className={cn("size-4", active && "text-foreground")} aria-hidden />
               {item.label}
+              <LinkPending className="ml-auto" />
             </Link>
           </div>
         );

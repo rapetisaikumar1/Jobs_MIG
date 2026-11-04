@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,8 @@ export const metadata: Metadata = { title: "Add candidate to job" };
 
 export default async function AddCandidateToJobPage({ params, searchParams }: { params: Promise<{ jobId: string }>; searchParams: Promise<SearchParams> }) {
   const ctx = await requireStaff(PERMISSIONS.APPLICATION_CREATE);
+  // These pages list and show candidates' personal details, so viewing candidates is required too.
+  if (!ctx.can(PERMISSIONS.CANDIDATE_VIEW)) redirect("/admin/forbidden");
   const job = await getAdminJob(ctx, (await params).jobId);
   if (!job) notFound();
   const sp = await searchParams;

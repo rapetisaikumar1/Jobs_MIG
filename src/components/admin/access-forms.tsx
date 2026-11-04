@@ -91,7 +91,7 @@ export function CreateStaffUserForm({ roles, defaultRoleIds }: { roles: Option[]
         The account is active immediately. Share the initial password with the user securely; they can change it later from “Forgot password”.
       </p>
       <div className="flex justify-end">
-        <Button type="submit" disabled={formState.isSubmitting || navigating}>{formState.isSubmitting || navigating ? "Creating…" : "Create user"}</Button>
+        <Button type="submit" loading={formState.isSubmitting || navigating} disabled={formState.isSubmitting || navigating}>{formState.isSubmitting || navigating ? "Creating…" : "Create user"}</Button>
       </div>
     </form>
   );
@@ -99,7 +99,6 @@ export function CreateStaffUserForm({ roles, defaultRoleIds }: { roles: Option[]
 
 /** Edit a staff user's name and roles. */
 export function EditStaffUserForm({ userId, email, defaultValues, roles }: { userId: string; email: string; defaultValues: Omit<StaffUserUpdateFormValues, "userId">; roles: Option[] }) {
-  const router = useRouter();
   const [msg, setMsg] = React.useState<Message>(null);
   const form = useForm<StaffUserUpdateFormValues>({ resolver: zodResolver(staffUserUpdateSchema), defaultValues: { ...defaultValues, userId } });
   const { register, handleSubmit, formState, setError } = form;
@@ -113,7 +112,7 @@ export function EditStaffUserForm({ userId, email, defaultValues, roles }: { use
       applyServerErrors(result, setError);
     } else {
       setMsg({ ok: true, text: result.message ?? "Saved." });
-      router.refresh();
+      // The action calls revalidatePath, so its response already re-renders this page.
     }
   });
 
@@ -131,7 +130,7 @@ export function EditStaffUserForm({ userId, email, defaultValues, roles }: { use
         <RoleChecklist roles={roles} register={register as unknown as UseFormRegister<{ roleIds: string[] }>} />
       </Field>
       <div className="flex justify-end">
-        <Button type="submit" disabled={formState.isSubmitting}>Save changes</Button>
+        <Button type="submit" loading={formState.isSubmitting} disabled={formState.isSubmitting}>Save changes</Button>
       </div>
     </form>
   );
@@ -168,7 +167,7 @@ export function SetPasswordForm({ userId }: { userId: string }) {
         </Field>
       </div>
       <div className="flex justify-end">
-        <Button type="submit" variant="outline" disabled={formState.isSubmitting}>Set password</Button>
+        <Button type="submit" variant="outline" loading={formState.isSubmitting} disabled={formState.isSubmitting}>Set password</Button>
       </div>
     </form>
   );
@@ -194,7 +193,7 @@ export function RoleForm({ roleId, defaultValues, groups, readOnly }: { roleId?:
     } else if (!roleId) startNavigation(() => router.push(`/admin/roles/${result.data.id}?notice=created`));
     else {
       setMsg({ ok: true, text: "Role saved." });
-      router.refresh();
+      // The action calls revalidatePath, so its response already re-renders this page.
     }
   });
 
@@ -213,7 +212,9 @@ export function RoleForm({ roleId, defaultValues, groups, readOnly }: { roleId?:
       <fieldset disabled={readOnly} className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="name" label="Role name" required error={formState.errors.name?.message}><Input id="name" {...register("name")} /></Field>
-          <Field id="description" label="Description" error={formState.errors.description?.message}><Textarea id="description" rows={1} className="min-h-9" {...register("description")} /></Field>
+          <Field id="description" label="Description" hint="Optional · shown next to the role when assigning it to users" error={formState.errors.description?.message} className="sm:col-span-2">
+            <Textarea id="description" rows={2} {...register("description")} />
+          </Field>
         </div>
         <div>
           <p className="mb-2 text-sm font-medium">Permissions <span className="font-normal text-muted-foreground">({selected.size} selected)</span></p>
@@ -246,7 +247,7 @@ export function RoleForm({ roleId, defaultValues, groups, readOnly }: { roleId?:
           </div>
         </div>
       </fieldset>
-      {!readOnly && <div className="flex justify-end"><Button type="submit" disabled={formState.isSubmitting || navigating}>{formState.isSubmitting || navigating ? "Saving…" : "Save role"}</Button></div>}
+      {!readOnly && <div className="flex justify-end"><Button type="submit" loading={formState.isSubmitting || navigating} disabled={formState.isSubmitting || navigating}>{formState.isSubmitting || navigating ? "Saving…" : "Save role"}</Button></div>}
     </form>
   );
 }

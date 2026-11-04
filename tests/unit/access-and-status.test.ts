@@ -37,6 +37,9 @@ describe("candidate-facing status", () => {
 
 describe("redirect safety", () => {
   it.each(["https://evil.com", "//evil.com", "/\\evil.com", ""])("rejects %s", (next) => expect(safeNextPath(next, "/x")).toBe("/x"));
+  it.each(["/\t/evil.com", "/\n/evil.com", "/\r//evil.com", "/\\/evil.com", "/%09/x\u0000"])("rejects control-character bypass %j", (next) =>
+    expect(safeNextPath(next, "/x")).toBe("/x"));
+  it("keeps query strings", () => expect(safeNextPath("/jobs?q=java&page=2", "/x")).toBe("/jobs?q=java&page=2"));
   it("keeps relative paths", () => expect(safeNextPath("/jobs/MIG-JOB-000001/apply", "/x")).toBe("/jobs/MIG-JOB-000001/apply"));
 });
 

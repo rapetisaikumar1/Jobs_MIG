@@ -66,6 +66,14 @@ export function ApplyForm({
     if (resumeFile) clearErrors("resumeDocumentId");
   }, [resumeFile, setValue, clearErrors]);
   React.useEffect(() => setValue("coverLetterDocumentId", coverLetter?.documentId ?? ""), [coverLetter, setValue]);
+  // The review step validates with trigger() (not a submit), so the form wouldn't re-check fields
+  // as they change; clear a field's error as soon as the user fixes it.
+  React.useEffect(() => {
+    const sub = watch((_, { name, type }) => {
+      if (name && type === "change" && form.getFieldState(name).error) void trigger(name);
+    });
+    return () => sub.unsubscribe();
+  }, [watch, trigger, form]);
   React.useEffect(() => setValue("supportingDocumentIds", supporting.map((f) => f.documentId)), [supporting, setValue]);
 
   async function goToReview() {
@@ -200,7 +208,7 @@ export function ApplyForm({
           {e.confirmAccurate && <p className="text-xs text-destructive">{e.confirmAccurate.message}</p>}
           <div className="flex justify-between gap-2">
             <Button variant="outline" onClick={() => setStep("edit")}>Back</Button>
-            <Button type="submit" disabled={formState.isSubmitting || navigating}>
+            <Button type="submit" loading={formState.isSubmitting || navigating} disabled={formState.isSubmitting || navigating}>
               {formState.isSubmitting || navigating ? "Submitting…" : "Submit application"}
             </Button>
           </div>

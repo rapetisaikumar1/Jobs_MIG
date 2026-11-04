@@ -19,28 +19,35 @@ export function LiveSearchForm({ className, children }: { className?: string; ch
   const searchParams = useSearchParams();
   const [pending, startTransition] = React.useTransition();
   const timer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
-  const lastPushed = React.useRef<string | null>(null);
+  // Every query string this form has written. URL updates can land late and out of order while
+  // the user keeps typing; one of ours arriving must never reset the fields (that dropped
+  // characters). Only a URL change from elsewhere ("Clear" link, back button) resets them.
+  const pushed = React.useRef<Set<string>>(new Set([searchParams.toString()]));
+  const typing = React.useRef(false);
   const [resetKey, setResetKey] = React.useState(0);
   const current = searchParams.toString();
 
-  // URL changed by something other than this form (a "Clear" link, back button): reset fields.
   React.useEffect(() => {
-    if (lastPushed.current !== null && current !== lastPushed.current) setResetKey((k) => k + 1);
-    lastPushed.current = current;
+    if (pushed.current.has(current) || typing.current) return;
+    pushed.current = new Set([current]);
+    setResetKey((k) => k + 1);
   }, [current]);
 
   React.useEffect(() => () => clearTimeout(timer.current), []);
 
   function run(form: HTMLFormElement, delay: number) {
     clearTimeout(timer.current);
+    typing.current = delay > 0;
     timer.current = setTimeout(() => {
+      typing.current = false;
       const params = new URLSearchParams();
       for (const [key, value] of new FormData(form)) {
         if (typeof value === "string" && value.trim() !== "") params.append(key, value.trim());
       }
       const qs = params.toString();
       if (qs === current) return;
-      lastPushed.current = qs;
+      if (pushed.current.size > 50) pushed.current = new Set([current]);
+      pushed.current.add(qs);
       startTransition(() => router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
     }, delay);
   }

@@ -89,7 +89,7 @@ export async function listCaseFiles(ctx: StaffContext, q: string | undefined, pa
     prisma.caseFile.count({ where }),
     prisma.caseFile.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
       select: {

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { sessionCookieOptions } from "@/lib/supabase/cookie-options";
 
 /**
  * Refreshes the Supabase session cookie on every request and performs coarse
@@ -13,6 +14,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: sessionCookieOptions(),
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -26,9 +28,12 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() refreshes an expired session (keeping the cookie fresh) and verifies the
+  // access token's signature locally against the project's cached signing keys (ES256),
+  // so navigation doesn't wait on a round trip to the Auth server. Pages, actions and
+  // route handlers still confirm the user with getUser() before authorizing anything.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims?.sub ? data.claims : null;
 
   const path = request.nextUrl.pathname;
   const isAdminArea = path.startsWith("/admin") && !path.startsWith("/admin/login");

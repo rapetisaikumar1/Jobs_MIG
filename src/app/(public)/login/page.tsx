@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { AuthCard } from "@/components/auth/auth-card";
 import { LoginForm } from "@/components/auth/login-form";
+import { AuthDivider, GoogleButton } from "@/components/auth/google-button";
 import { param, type SearchParams } from "@/lib/pagination";
 import { getAuthUser } from "@/modules/auth/session";
 
@@ -18,7 +19,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       ? "This account is not active on the job portal."
       : param(params, "error") === "link"
         ? "That link is invalid or has expired. Please request a new one."
-        : null;
+        : param(params, "error") === "google"
+          ? "Google sign-in didn't complete. Please try again, or sign in with your email and password."
+          : param(params, "error") === "staff"
+            ? "This is a MaverickInnogarage staff account. Please use the staff sign-in instead."
+            : null;
+  const next = param(params, "next");
 
   return (
     <AuthCard
@@ -35,7 +41,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       }
     >
       {notice && <Alert variant="neutral" className="mb-4">{notice}</Alert>}
-      <LoginForm portal="candidate" next={param(params, "next")} />
+      <GoogleButton next={next} />
+      <AuthDivider label="or sign in with email" />
+      <LoginForm portal="candidate" next={next} />
     </AuthCard>
   );
 }

@@ -12,6 +12,10 @@ export const RATE_LIMITS = {
   // 5 per email address; a shared office/campus IP may register many different people.
   register: { limit: 5, windowSeconds: 60 * 60, ipLimit: 30 },
   passwordReset: { limit: 5, windowSeconds: 60 * 60 },
+  // Every code attempt counts: 10 guesses per email per 15 minutes (Supabase also expires and limits codes).
+  verifyCode: { limit: 10, windowSeconds: 15 * 60, ipLimit: 60 },
+  // Starting a Google sign-in (cheap, but keeps bots from hammering the OAuth endpoint).
+  oauthStart: { limit: 30, windowSeconds: 15 * 60 },
   // Signed-in actions: the per-user limit is the real guard. The IP limit is higher so
   // many candidates behind one office/campus IP (NAT) are not blocked by each other.
   apply: { limit: 20, windowSeconds: 60 * 60, ipLimit: 300 },
@@ -68,6 +72,27 @@ export async function checkRateLimit(name: keyof typeof RATE_LIMITS, subject?: s
     const row = rows.find((r) => r.key === key);
     if (row && row.windowStart.getTime() >= windowStart && row.count >= limit) throw new AppError(TOO_MANY);
   }
+}
+
+/**
+ * Atomically counts an attempt against the subject (e.g. an email) before the work is done, so
+ * concurrent requests can't all slip past a read-only check. Returns a function that gives the
+ * attempt back (used when a sign-in succeeds, so only failures count, as before).
+ */
+export async function reserveSubjectAttempt(name: keyof typeof RATE_LIMITS, subject: string): Promise<() => Promise<void>> {
+  const rule: Rule = RATE_LIMITS[name];
+  const key = `${name}:sub:${subject.toLowerCase()}`;
+  const { allowed } = await hitRateLimit(key, rule);
+  if (!allowed) throw new AppError(TOO_MANY);
+  return async () => {
+    await prisma.$executeRaw`UPDATE rate_limits SET count = GREATEST(count - 1, 0) WHERE key = ${key}`;
+  };
+}
+
+/** Counts one attempt against the caller's IP only. */
+export async function recordIpHit(name: keyof typeof RATE_LIMITS): Promise<void> {
+  const { rule, keys } = await ruleKeys(name);
+  for (const { key, limit } of keys) await hitRateLimit(key, { ...rule, limit });
 }
 
 /** Counts one attempt (e.g. a failed sign-in) against the rule. */

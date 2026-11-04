@@ -7,9 +7,9 @@ import { runAction } from "@/lib/action";
 import { AppError, ForbiddenError, ok, validationFailure, type ActionResult } from "@/lib/action-result";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { checkbox, uuid } from "@/lib/validation";
-import { getStaffContext, requireStaffForAction } from "@/modules/access-control/context";
+import { getStaffContextStrict, requireStaffForAction } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
-import { getCandidateContext } from "@/modules/auth/session";
+import { getCandidateContextStrict } from "@/modules/auth/session";
 import {
   activateDocuments,
   createUploadTicket,
@@ -32,7 +32,7 @@ export async function requestUploadAction(input: z.input<typeof uploadRequestSch
     if (!parsed.success) return validationFailure(parsed.error);
     const { type, fileName, sizeBytes, candidateId } = parsed.data;
 
-    const staff = await getStaffContext();
+    const staff = await getStaffContextStrict();
     if (staff) {
       if (![PERMISSIONS.CANDIDATE_ADD, PERMISSIONS.CANDIDATE_EDIT, PERMISSIONS.APPLICATION_CREATE].some((p) => staff.can(p))) throw new ForbiddenError();
       if (candidateId && !(await prisma.candidateProfile.count({ where: { id: candidateId } }))) {
@@ -42,7 +42,7 @@ export async function requestUploadAction(input: z.input<typeof uploadRequestSch
       return ok(await createUploadTicket({ actorUserId: staff.user.id, candidateId: candidateId ?? null, type, fileName, sizeBytes }));
     }
 
-    const candidate = await getCandidateContext();
+    const candidate = await getCandidateContextStrict();
     if (!candidate) throw new ForbiddenError("Please sign in to upload documents.");
     await enforceRateLimit("upload", candidate.user.id);
     return ok(
@@ -62,14 +62,14 @@ export async function attachProfileDocumentAction(input: z.input<typeof attachSc
 
     let actorId: string;
     let candidateId: string;
-    const staff = await getStaffContext();
+    const staff = await getStaffContextStrict();
     if (staff) {
       if (!staff.can(PERMISSIONS.CANDIDATE_EDIT)) throw new ForbiddenError();
       if (!parsed.data.candidateId) throw new AppError("Candidate is required.");
       actorId = staff.user.id;
       candidateId = parsed.data.candidateId;
     } else {
-      const candidate = await getCandidateContext();
+      const candidate = await getCandidateContextStrict();
       if (!candidate) throw new ForbiddenError("Please sign in.");
       actorId = candidate.user.id;
       candidateId = candidate.profile.id;
@@ -93,13 +93,13 @@ export async function attachProfileDocumentAction(input: z.input<typeof attachSc
 const documentRefSchema = z.object({ documentId: uuid, candidateId: uuid.optional() });
 
 async function resolveProfileOwner(candidateIdForStaff?: string) {
-  const staff = await getStaffContext();
+  const staff = await getStaffContextStrict();
   if (staff) {
     await requireStaffForAction(PERMISSIONS.CANDIDATE_EDIT);
     if (!candidateIdForStaff) throw new AppError("Candidate is required.");
     return { staff, candidateId: candidateIdForStaff };
   }
-  const candidate = await getCandidateContext();
+  const candidate = await getCandidateContextStrict();
   if (!candidate) throw new ForbiddenError("Please sign in.");
   return { staff: null, candidateId: candidate.profile.id };
 }

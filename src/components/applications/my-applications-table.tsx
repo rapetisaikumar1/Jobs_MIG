@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ApplicationStatus } from "@prisma/client";
+import { buttonVariants } from "@/components/ui/button";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ApplicationStatusBadge } from "@/components/shared/status-badges";
 import { formatDate } from "@/lib/format";
@@ -35,14 +36,13 @@ export function MyApplicationsTable({ rows, timeZone }: { rows: Row[]; timeZone:
               <TD>{row.job.title}</TD>
               <TD className="whitespace-nowrap">{formatDate(row.appliedAt, timeZone)}</TD>
               <TD><ApplicationStatusBadge status={row.status} audience="candidate" /></TD>
-              <TD className="whitespace-nowrap text-right text-sm">
-                <Link href={`/candidate/applications/${row.displayId}`} className="hover:underline">Details</Link>
-                {(row.job.status === "PUBLISHED" || row.job.status === "CLOSED") && (
-                  <>
-                    {" · "}
-                    <Link href={`/jobs/${row.job.displayId}`} className="hover:underline">Job</Link>
-                  </>
-                )}
+              <TD className="whitespace-nowrap text-right">
+                <span className="inline-flex items-center gap-1">
+                  {(row.job.status === "PUBLISHED" || row.job.status === "CLOSED") && (
+                    <Link href={`/jobs/${row.job.displayId}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>View job</Link>
+                  )}
+                  <Link href={`/candidate/applications/${row.displayId}`} className={buttonVariants({ variant: "outline", size: "sm" })}>Details</Link>
+                </span>
               </TD>
             </TR>
           ))}

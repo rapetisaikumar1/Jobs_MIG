@@ -73,11 +73,22 @@ npm run dev                   # http://localhost:3000 — staff sign-in at /admi
 **Authentication → URL Configuration**
 
 - Site URL: your app URL (e.g. `https://jobs.maverickinnogarage.com`, or `http://localhost:3000` locally).
-- Redirect URLs: add `<site>/auth/confirm`.
+- Redirect URLs: add `<site>/auth/confirm` and `<site>/auth/callback` (Google sign-in).
 
 **Authentication → Providers → Email**
 
 - Enable email provider and **Confirm email**.
+- Email OTP length: 6 (the default). Email OTP expiration: 3600 seconds or less.
+
+**Authentication → Providers → Google** (job portal "Continue with Google")
+
+1. In Google Cloud Console → APIs & Services → Credentials, create an **OAuth client ID** (type: Web application).
+   - Authorized JavaScript origins: your site URL.
+   - Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback` (shown on the Supabase Google provider page).
+   - OAuth consent screen: app name, support email, the `email` and `profile` scopes, then publish the app.
+2. In Supabase, enable the Google provider and paste the client ID and client secret.
+
+Google sign-in exists on the job portal only. A Google login whose email belongs to a staff account is refused on the job portal; staff keep using `/admin/login`. A first Google sign-in creates the candidate account (source "Job Portal") and opens the profile so the candidate can add their phone number and location. Supabase links a Google login to an existing candidate with the same verified email address.
 
 **Authentication → Policies (optional)**
 
@@ -85,15 +96,30 @@ npm run dev                   # http://localhost:3000 — staff sign-in at /admi
 
 **Production email**
 
-- Configure custom SMTP (Authentication → SMTP). The built-in sender is heavily rate-limited.
+- Configure custom SMTP (Authentication → SMTP), for example Resend, SendGrid, Amazon SES or Postmark. **Without it, sign-up codes do not reach candidates:** Supabase's built-in sender only delivers to your own project team's addresses and allows only a few emails per hour.
 
 ### 2. Email templates
 
-Authentication → Email Templates. Server-side apps should use token-hash links, which `/auth/confirm` verifies on the server:
+Authentication → Email Templates.
+
+**Confirm signup: verification code.** Candidates finish sign-up by typing the code from this email into the sign-up page (the app checks it with `verifyOtp`). The template must contain `{{ .Token }}`. Suggested template:
+
+- Subject: `Your MaverickInnogarage verification code`
+- Body:
+
+```html
+<h2>Verify your email</h2>
+<p>Enter this code on the MaverickInnogarage sign-up page to finish creating your account:</p>
+<p style="font-size:28px;font-weight:700;letter-spacing:6px">{{ .Token }}</p>
+<p>The code expires in 1 hour. If you didn't create an account, you can ignore this email.</p>
+```
+
+Unverified candidates who try to sign in are offered "Enter verification code", which can also send a new code.
+
+**Reset password: link.** Server-side apps should use token-hash links, which `/auth/confirm` verifies on the server:
 
 | Template | Link `href` |
 |---|---|
-| Confirm signup | `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/candidate/profile?welcome=1` |
 | Reset password | `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password` |
 
 (`/auth/confirm` also accepts the default PKCE `?code=` links as a fallback.)
@@ -153,9 +179,10 @@ npm run typecheck && npm run lint
 
 **Production checklist:**
 
-- [ ] Custom SMTP
-- [ ] Email templates updated
-- [ ] Redirect URLs set
+- [ ] Custom SMTP (required for sign-up codes to reach candidates)
+- [ ] Email templates updated (Confirm signup contains `{{ .Token }}`)
+- [ ] Redirect URLs set (`/auth/confirm`, `/auth/callback`)
+- [ ] Google provider enabled with the production OAuth client
 - [ ] Database backups / PITR enabled
 - [ ] `SEED_DEMO_PASSWORD` unset
 - [ ] Privacy notice reviewed by counsel (`src/app/(public)/privacy/page.tsx`)
@@ -174,7 +201,7 @@ src/
 │   ├── admin/(auth)/        /admin/login, /admin/forbidden
 │   ├── admin/(portal)/      jobs (+ add-candidate), case-files (job folders → application folders), applications, candidates,
 │   │                        search, users, roles
-│   ├── auth/                /auth/confirm (email links), /auth/signout
+│   ├── auth/                /auth/confirm (email links), /auth/google + /auth/callback (Google sign-in), /auth/signout
 │   └── api/                 /api/documents/[id] (secure download), /api/cron/cleanup-uploads
 ├── components/              ui/ (design system), forms/, jobs/, candidates/, applications/, documents/, admin/, layout/
 ├── modules/

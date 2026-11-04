@@ -14,6 +14,14 @@ export function applyServerErrors<T extends FieldValues>(result: ActionResult<un
 
 /** Reads a nested RHF error message without fighting its deep types. */
 export function errorMessage(errors: Record<string, unknown>, name: string): string | undefined {
-  const entry = errors[name] as { message?: unknown } | undefined;
-  return typeof entry?.message === "string" ? entry.message : undefined;
+  const entry = errors[name] as ({ message?: unknown; root?: { message?: unknown } } & Record<string, unknown>) | undefined;
+  if (!entry) return undefined;
+  if (typeof entry.message === "string") return entry.message;
+  if (typeof entry.root?.message === "string") return entry.root.message;
+  // List fields (tag inputs) report errors per entry, e.g. errors.primarySkills[2].message.
+  for (const item of Object.values(entry)) {
+    const message = (item as { message?: unknown } | undefined)?.message;
+    if (typeof message === "string") return message;
+  }
+  return undefined;
 }

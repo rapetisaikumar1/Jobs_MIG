@@ -1,6 +1,12 @@
 import "server-only";
+import { cache } from "react";
 import type { Country, EmploymentType, JobStatus, Prisma, WorkArrangement } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { cached } from "@/lib/ttl-cache";
+
+/** Public job data is the same for every visitor: cache briefly, invalidated on job changes. */
+export const PUBLIC_JOBS_CACHE = "public-jobs:";
+const PUBLIC_TTL_MS = 30_000;
 import { openDeadlineCutoff, skillSlug } from "@/lib/format";
 import { pageArgs } from "@/lib/pagination";
 import { CA_PROVINCES, US_STATES } from "@/config/locations";
@@ -37,6 +43,13 @@ export const publicJobSelect = {
 } satisfies Prisma.JobSelect;
 
 export type PublicJob = Prisma.JobGetPayload<{ select: typeof publicJobSelect }>;
+
+/** What a job card shows: the public fields minus the long texts (description, responsibilities, education). */
+const publicJobCardSelect = (({ description, responsibilities, education, ...rest }) => {
+  void description; void responsibilities; void education;
+  return rest;
+})(publicJobSelect);
+export type PublicJobCard = Prisma.JobGetPayload<{ select: typeof publicJobCardSelect }>;
 
 /** Never send a hidden salary to the public portal (it would otherwise be serialized into the page payload). */
 export function redactHiddenSalary<T extends Pick<PublicJob, "salaryPublic" | "compensationMin" | "compensationMax">>(job: T): T {
@@ -92,13 +105,17 @@ export function publicJobsWhere(filters: PublicJobFilters): Prisma.JobWhereInput
 }
 
 export async function listPublicJobs(filters: PublicJobFilters, page: number, pageSize = 15) {
+  return cached(`${PUBLIC_JOBS_CACHE}list:${JSON.stringify([filters, page, pageSize])}`, PUBLIC_TTL_MS, () => loadPublicJobs(filters, page, pageSize));
+}
+
+async function loadPublicJobs(filters: PublicJobFilters, page: number, pageSize: number) {
   const where = publicJobsWhere(filters);
   const [total, jobs] = await Promise.all([
     prisma.job.count({ where }),
     prisma.job.findMany({
       where,
       orderBy: [{ publishedAt: "desc" }, { displayId: "desc" }],
-      select: publicJobSelect,
+      select: publicJobCardSelect,
       ...pageArgs(page, pageSize),
     }),
   ]);
@@ -106,20 +123,55 @@ export async function listPublicJobs(filters: PublicJobFilters, page: number, pa
 }
 
 export async function listHomepageJobs() {
+  return cached(`${PUBLIC_JOBS_CACHE}home`, PUBLIC_TTL_MS, loadHomepageJobs);
+}
+
+async function loadHomepageJobs() {
   const [featured, recent] = await Promise.all([
     prisma.job.findMany({
       where: { AND: [openJobsWhere(), { isFeatured: true }] },
       orderBy: { publishedAt: "desc" },
       take: 3,
-      select: publicJobSelect,
+      select: publicJobCardSelect,
     }),
-    prisma.job.findMany({ where: openJobsWhere(), orderBy: { publishedAt: "desc" }, take: 6, select: publicJobSelect }),
+    prisma.job.findMany({ where: openJobsWhere(), orderBy: { publishedAt: "desc" }, take: 6, select: publicJobCardSelect }),
   ]);
   return { featured: featured.map(redactHiddenSalary), recent: recent.map(redactHiddenSalary) };
 }
 
-/** Published or closed jobs are viewable publicly; drafts and archived jobs are not. */
-export async function getPublicJob(displayId: string) {
+/** Count of jobs open for applications (homepage headline). */
+export async function countOpenJobs() {
+  return cached(`${PUBLIC_JOBS_CACHE}count`, PUBLIC_TTL_MS, () => prisma.job.count({ where: openJobsWhere() }));
+}
+
+/** Search-as-you-type: only what the suggestion list shows. */
+export async function suggestPublicJobs(filters: PublicJobFilters, take = 6) {
+  return cached(`${PUBLIC_JOBS_CACHE}suggest:${JSON.stringify([filters, take])}`, PUBLIC_TTL_MS, () => loadSuggestions(filters, take));
+}
+
+async function loadSuggestions(filters: PublicJobFilters, take: number) {
+  const where = publicJobsWhere(filters);
+  const [total, jobs] = await Promise.all([
+    prisma.job.count({ where }),
+    prisma.job.findMany({
+      where,
+      orderBy: [{ publishedAt: "desc" }, { displayId: "desc" }],
+      take,
+      select: { displayId: true, title: true, city: true, state: true, country: true, workArrangement: true, employmentType: true },
+    }),
+  ]);
+  return { total, jobs };
+}
+
+/**
+ * Published or closed jobs are viewable publicly; drafts and archived jobs are not.
+ * cache(): generateMetadata and the page both call this in the same request.
+ */
+export const getPublicJob = cache(async (displayId: string) =>
+  cached(`${PUBLIC_JOBS_CACHE}job:${displayId.toUpperCase()}`, PUBLIC_TTL_MS, () => loadPublicJob(displayId)),
+);
+
+async function loadPublicJob(displayId: string) {
   const job = await prisma.job.findFirst({
     where: { displayId: displayId.toUpperCase(), status: { in: ["PUBLISHED", "CLOSED"] } },
     select: publicJobSelect,
@@ -157,7 +209,7 @@ export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters,
     prisma.job.count({ where }),
     prisma.job.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       ...pageArgs(page),
       select: {
         id: true,

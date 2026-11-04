@@ -1,16 +1,21 @@
 import type { CandidateSkillLevel, JobSkillType, Prisma } from "@prisma/client";
 import { cleanList, skillSlug } from "@/lib/format";
 
-/** Upserts standardized skills by slug and returns their ids keyed by slug. */
+/**
+ * Upserts standardized skills by slug and returns their ids keyed by slug. Two statements
+ * regardless of how many skills (was one upsert per skill): insert the missing ones
+ * (existing names are never changed, as before), then read all ids.
+ */
 export async function ensureSkills(tx: Prisma.TransactionClient, names: string[]): Promise<Map<string, string>> {
-  const ids = new Map<string, string>();
+  const bySlug = new Map<string, string>();
   for (const name of cleanList(names)) {
     const slug = skillSlug(name);
-    if (ids.has(slug)) continue;
-    const skill = await tx.skill.upsert({ where: { slug }, update: {}, create: { slug, name } });
-    ids.set(slug, skill.id);
+    if (!bySlug.has(slug)) bySlug.set(slug, name);
   }
-  return ids;
+  if (!bySlug.size) return new Map();
+  await tx.skill.createMany({ data: [...bySlug].map(([slug, name]) => ({ slug, name })), skipDuplicates: true });
+  const rows = await tx.skill.findMany({ where: { slug: { in: [...bySlug.keys()] } }, select: { id: true, slug: true } });
+  return new Map(rows.map((r) => [r.slug, r.id]));
 }
 
 /** Replaces a candidate's skills. A skill listed as primary wins over secondary. */

@@ -56,7 +56,8 @@ PORT=3400 UPSTREAMS=http://127.0.0.1:3401,http://127.0.0.1:3402 MAX_INFLIGHT=24 
 - [ ] TLS everywhere (HSTS is sent; the session cookie is only `Secure` over https)
 - [ ] Proxy overwrites `X-Forwarded-For`
 - [ ] Pooler on 6543, migrations through `DIRECT_URL`
-- [ ] Custom SMTP, email templates, redirect URLs (see README)
+- [ ] Custom SMTP, email templates (Confirm signup with `{{ .Token }}`), redirect URLs incl. `/auth/callback` (see README)
+- [ ] Google OAuth client for the production domain; Supabase Google provider enabled
 - [ ] Database backups / PITR enabled
 - [ ] `CRON_SECRET` set; `SEED_DEMO_PASSWORD` unset
 - [ ] Supabase Auth rate limits reviewed (login bursts are bound by GoTrue's bcrypt cost)

@@ -39,9 +39,13 @@ function label<T extends string>(labels: Record<T, string>, v: string | null | u
 /** Application folder: candidate, submitted snapshot, documents, status, notes and history. */
 export default async function ApplicationFolderPage({ params, searchParams }: { params: Promise<{ applicationId: string }>; searchParams: Promise<SearchParams> }) {
   const ctx = await requireStaff(PERMISSIONS.APPLICATION_VIEW);
-  const app = await getApplicationFolder(ctx, (await params).applicationId.toUpperCase());
+  // Independent lookups run together (the staff list doesn't depend on the application).
+  const [app, tz, staff] = await Promise.all([
+    getApplicationFolder(ctx, (await params).applicationId.toUpperCase()),
+    getViewerTimeZone(),
+    listActiveStaff(),
+  ]);
   if (!app) notFound();
-  const [tz, staff] = await Promise.all([getViewerTimeZone(), listActiveStaff()]);
   const notice = param(await searchParams, "notice");
   const snap = parseSnapshot(app.candidateSnapshot);
   const canUpdate = ctx.can(PERMISSIONS.APPLICATION_UPDATE_STATUS);

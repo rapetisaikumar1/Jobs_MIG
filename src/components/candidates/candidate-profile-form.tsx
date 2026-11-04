@@ -104,7 +104,7 @@ export function CandidateProfileForm({
         applyServerErrors(result, setFieldError);
       } else {
         setSuccess(result.message ?? "Saved.");
-        router.refresh();
+        // The action calls revalidatePath, so its response already re-renders this page.
       }
       return;
     }
@@ -211,21 +211,19 @@ export function CandidateProfileForm({
         <Field id="currentEmployer" label="Current employer" error={err("currentEmployer")}>
           <Input id="currentEmployer" {...register("currentEmployer")} />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field id="totalExperienceYears" label="Total experience (yrs)" error={err("totalExperienceYears")}>
-            <Input id="totalExperienceYears" type="number" min={0} max={60} step={0.5} {...register("totalExperienceYears")} />
-          </Field>
-          <Field id="relevantExperienceYears" label="Relevant exp. (yrs)" error={err("relevantExperienceYears")}>
-            <Input id="relevantExperienceYears" type="number" min={0} max={60} step={0.5} {...register("relevantExperienceYears")} />
-          </Field>
-        </div>
-        {tagField("primarySkills", "Primary skills", "Your strongest skills. Press Enter after each.", skillSuggestions)}
-        {tagField("secondarySkills", "Secondary skills", undefined, skillSuggestions)}
         <Field id="highestQualification" label="Highest qualification" error={err("highestQualification")}>
           <Select id="highestQualification" {...register("highestQualification")}>
             <Options labels={QUALIFICATION_LABELS} empty="Select" />
           </Select>
         </Field>
+        <Field id="totalExperienceYears" label="Total experience (years)" error={err("totalExperienceYears")}>
+          <Input id="totalExperienceYears" type="number" min={0} max={60} step={0.5} {...register("totalExperienceYears")} />
+        </Field>
+        <Field id="relevantExperienceYears" label="Relevant experience (years)" error={err("relevantExperienceYears")}>
+          <Input id="relevantExperienceYears" type="number" min={0} max={60} step={0.5} {...register("relevantExperienceYears")} />
+        </Field>
+        {tagField("primarySkills", "Primary skills", "Your strongest skills. Press Enter after each.", skillSuggestions)}
+        {tagField("secondarySkills", "Secondary skills", undefined, skillSuggestions)}
         <Field id="education" label="Education" error={err("education")} hint="Degree, institution, year" className="sm:col-span-2">
           <Textarea id="education" rows={3} {...register("education")} />
         </Field>
@@ -244,18 +242,16 @@ export function CandidateProfileForm({
         <Field id="expectedCompensation" label="Expected salary / hourly rate" error={err("expectedCompensation")}>
           <Input id="expectedCompensation" type="number" min={0} step="any" {...register("expectedCompensation")} />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field id="currency" label="Currency" error={err("currency")}>
-            <Select id="currency" {...register("currency")}>
-              <Options labels={CURRENCY_LABELS} empty="Select" />
-            </Select>
-          </Field>
-          <Field id="compensationType" label="Type" error={err("compensationType")}>
-            <Select id="compensationType" {...register("compensationType")}>
-              <Options labels={COMPENSATION_TYPE_LABELS} empty="Select" />
-            </Select>
-          </Field>
-        </div>
+        <Field id="compensationType" label="Pay type" error={err("compensationType")}>
+          <Select id="compensationType" {...register("compensationType")}>
+            <Options labels={COMPENSATION_TYPE_LABELS} empty="Select" />
+          </Select>
+        </Field>
+        <Field id="currency" label="Currency" error={err("currency")}>
+          <Select id="currency" {...register("currency")}>
+            <Options labels={CURRENCY_LABELS} empty="Select" />
+          </Select>
+        </Field>
         <Field id="noticePeriodDays" label="Notice period (days)" error={err("noticePeriodDays")} hint="0 if available immediately">
           <Input id="noticePeriodDays" type="number" min={0} max={365} {...register("noticePeriodDays")} />
         </Field>
@@ -305,13 +301,13 @@ export function CandidateProfileForm({
         </FormSection>
       )}
 
-      <div className="flex justify-end gap-2 border-t pt-6">
+      <div className="flex justify-end gap-2">
         {isStaff && (
           <Button variant="outline" onClick={() => router.back()}>
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={formState.isSubmitting || navigating}>
+        <Button type="submit" loading={formState.isSubmitting || navigating} disabled={formState.isSubmitting || navigating}>
           {formState.isSubmitting || navigating ? "Saving…" : mode === "staff-create" ? "Create candidate" : "Save profile"}
         </Button>
       </div>

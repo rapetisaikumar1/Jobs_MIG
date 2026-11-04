@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import type { ActionResult } from "@/lib/action-result";
 
@@ -20,7 +19,6 @@ export function ActionButton({
   confirm?: string;
   onDone?: (result: ActionResult<unknown>) => void;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [message, setMessage] = React.useState<{ ok: boolean; text: string } | null>(null);
 
@@ -29,13 +27,16 @@ export function ActionButton({
       <Button
         {...props}
         disabled={pending || props.disabled}
+        loading={pending}
         onClick={() => {
           if (confirm && !window.confirm(confirm)) return;
           startTransition(async () => {
             const result = await action();
             setMessage(result.ok ? (result.message ? { ok: true, text: result.message } : null) : { ok: false, text: result.error });
             onDone?.(result);
-            if (result.ok) router.refresh();
+            // No router.refresh(): every action used here calls revalidatePath (or redirects), so the
+            // action's own response already carries the updated page. A second refresh raced with that
+            // streamed response and could leave the button stuck on "Working…".
           });
         }}
       >

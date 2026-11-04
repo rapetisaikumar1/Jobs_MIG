@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 import type { DocumentType } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +36,6 @@ export function ProfileDocuments({
   /** Staff without "document.view" see file names only. */
   canOpen?: boolean;
 }) {
-  const router = useRouter();
   const [type, setType] = React.useState<DocumentType>("RESUME");
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
@@ -87,7 +85,8 @@ export function ProfileDocuments({
       )}
 
       {canEdit && (
-        <div className="grid gap-2 rounded-md border bg-muted/30 p-3 sm:grid-cols-[180px_1fr] sm:items-start">
+        <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+          <p className="text-sm font-medium">Upload a document</p>
           <Select value={type} onChange={(e) => setType(e.target.value as DocumentType)} aria-label="Document type">
             {(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((t) => (
               <option key={t} value={t}>
@@ -113,8 +112,8 @@ export function ProfileDocuments({
               });
               if (!result.ok) setError(result.error);
               else {
-                setSuccess(type === "RESUME" ? "Resume uploaded and set as your default." : "Document uploaded.");
-                router.refresh();
+                setSuccess(type === "RESUME" ? (candidateId ? "Resume uploaded and set as the default." : "Resume uploaded and set as your default.") : "Document uploaded.");
+                // The action calls revalidatePath, so its response already re-renders this page.
               }
             }}
           />

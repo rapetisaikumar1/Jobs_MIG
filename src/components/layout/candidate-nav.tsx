@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { LinkPending } from "@/components/layout/link-pending";
 
 const LINKS = [
   { href: "/candidate/dashboard", label: "Dashboard" },
@@ -19,11 +20,12 @@ export function CandidateNav() {
           key={link.href}
           href={link.href}
           className={cn(
-            "whitespace-nowrap border-b-2 py-3 text-sm font-medium",
+            "flex items-center gap-1.5 whitespace-nowrap border-b-2 py-3 text-sm font-medium",
             pathname.startsWith(link.href) ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
           {link.label}
+          <LinkPending />
         </Link>
       ))}
     </nav>

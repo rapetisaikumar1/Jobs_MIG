@@ -25,6 +25,15 @@ export const loginSchema = z.object({
 
 export const forgotPasswordSchema = z.object({ email });
 
+/** Sign-up verification: the one-time code from the verification email (6 digits by default in Supabase). */
+export const verifyEmailCodeSchema = z.object({
+  email,
+  code: z
+    .string()
+    .transform((v) => v.replace(/\s/g, ""))
+    .pipe(z.string().regex(/^\d{6,10}$/, "Enter the 6-digit code from your email")),
+});
+
 export const resetPasswordSchema = z
   .object({ password, confirmPassword: z.string() })
   .refine((v) => v.password === v.confirmPassword, {

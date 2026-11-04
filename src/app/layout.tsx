@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Suspense } from "react";
 import { TimeZoneSync } from "@/components/shared/time-zone-sync";
+import { NavigationProgress } from "@/components/shared/navigation-progress";
 import { siteConfig } from "@/config/site";
 import "./globals.css";
 
@@ -17,6 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en-US" className={inter.variable}>
       <body className="min-h-dvh font-sans antialiased">
         <TimeZoneSync />
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         {children}
       </body>
     </html>
