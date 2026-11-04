@@ -51,6 +51,8 @@ PORT=3400 UPSTREAMS=http://127.0.0.1:3401,http://127.0.0.1:3402 MAX_INFLIGHT=24 
 
 ## Production checklist
 
+- Self-hosted Postgres in Docker: give the container enough shared memory (`--shm-size=1g` or `shm_size: 1g`). With Docker's 64 MB default, parallel queries on large tables (for example the filtered admin applications count at 500k rows) fail with `53100 could not resize shared memory segment`. If you cannot raise it, set `max_parallel_workers_per_gather = 0` for the database. This is slower but does not fail. Supabase-hosted Postgres is not affected.
+
 - [ ] TLS everywhere (HSTS is sent; the session cookie is only `Secure` over https)
 - [ ] Proxy overwrites `X-Forwarded-For`
 - [ ] Pooler on 6543, migrations through `DIRECT_URL`

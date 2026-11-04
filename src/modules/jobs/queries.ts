@@ -186,16 +186,26 @@ export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters,
 }
 
 export async function getAdminJob(ctx: StaffContext, displayId: string) {
-  return prisma.job.findFirst({
+  const job = await prisma.job.findFirst({
     where: { AND: [{ displayId: displayId.toUpperCase() }, jobScopeWhere(ctx)] },
     include: {
-      caseFile: { include: { _count: { select: { folders: true } } } },
+      caseFile: true,
       skills: { include: { skill: true } },
       assignedRecruiter: { select: { id: true, firstName: true, lastName: true } },
       createdBy: { select: { firstName: true, lastName: true } },
-      _count: { select: { applications: true } },
     },
   });
+  if (!job) return null;
+  // Counted per job: a relation _count here groups the whole applications/folders tables.
+  const [applications, folders] = await Promise.all([
+    prisma.application.count({ where: { jobId: job.id } }),
+    job.caseFile ? prisma.caseFolder.count({ where: { caseFileId: job.caseFile.id } }) : 0,
+  ]);
+  return {
+    ...job,
+    caseFile: job.caseFile ? { ...job.caseFile, _count: { folders } } : null,
+    _count: { applications },
+  };
 }
 
 export async function listJobFormOptions() {

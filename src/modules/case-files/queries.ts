@@ -9,14 +9,14 @@ import { jobScopeWhere } from "@/modules/access-control/scope";
  * Job -> Case File -> Application Folder -> Documents, all driven by relationships.
  */
 export async function getCaseFile(ctx: StaffContext, jobDisplayId: string, q?: string) {
-  const job = await prisma.job.findFirst({
+  const found = await prisma.job.findFirst({
     where: { AND: [{ displayId: jobDisplayId.toUpperCase() }, jobScopeWhere(ctx)] },
-    include: {
-      caseFile: { include: { _count: { select: { folders: true } } } },
-      skills: { include: { skill: true } },
-    },
+    include: { caseFile: true, skills: { include: { skill: true } } },
   });
-  if (!job?.caseFile) return null;
+  if (!found?.caseFile) return null;
+  // Counted for this case file only (relation _count would group every folder).
+  const folderTotal = await prisma.caseFolder.count({ where: { caseFileId: found.caseFile.id } });
+  const job = { ...found, caseFile: { ...found.caseFile, _count: { folders: folderTotal } } };
 
   const folderWhere: Prisma.CaseFolderWhereInput = {
     caseFileId: job.caseFile.id,

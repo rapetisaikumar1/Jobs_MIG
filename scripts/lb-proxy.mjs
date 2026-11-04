@@ -54,22 +54,32 @@ function dispatch(req, res, tried = 0) {
   if (!u) {
     if (queue.length >= MAX_QUEUE) return shed(res);
     const job = { req, res, tried, expired: false };
-    job.timer = setTimeout(() => { job.expired = true; shed(res); }, QUEUE_TIMEOUT_MS);
+    const drop = () => { if (job.expired) return; job.expired = true; clearTimeout(job.timer); const i = queue.indexOf(job); if (i >= 0) queue.splice(i, 1); };
+    job.timer = setTimeout(() => { drop(); shed(res); }, QUEUE_TIMEOUT_MS);
+    res.on("close", drop); // client gave up while queued: free the slot
     queue.push(job);
     return;
   }
   u.inflight++;
+  // Release the slot exactly once, whatever ends the exchange (upstream end/error, or the
+  // client disconnecting mid-request). Without this, aborted requests leaked slots until
+  // every upstream looked full and the proxy shed all traffic permanently.
+  let released = false;
+  const done = () => { if (!released) { released = true; release(u); } };
   const headers = { ...req.headers, "x-forwarded-for": (TRUST_XFF && req.headers["x-forwarded-for"]) || req.socket.remoteAddress, "x-forwarded-host": req.headers.host, "x-forwarded-proto": "http" };
   const p = http.request({ host: u.url.hostname, port: u.url.port, method: req.method, path: req.url, headers, agent }, (pr) => {
     res.writeHead(pr.statusCode, pr.headers);
     pr.pipe(res);
-    pr.on("end", () => { stats.ok++; release(u); });
-    pr.on("error", () => release(u));
+    pr.on("end", () => { stats.ok++; done(); });
+    pr.on("error", done);
+    pr.on("close", done);
   });
+  res.on("close", () => { if (!released) { p.destroy(); done(); } });
   p.on("error", () => {
     stats.upstreamErr++;
+    if (released) return; // client already gone; nothing left to answer
     u.down = Date.now() + 2000; // take the instance out briefly (e.g. restarting)
-    release(u);
+    done();
     // Retry idempotent requests once on another instance; otherwise fail fast.
     if ((req.method === "GET" || req.method === "HEAD") && tried < upstreams.length - 1 && !res.headersSent) return dispatch(req, res, tried + 1);
     if (!res.headersSent) { res.writeHead(502, { "Content-Type": "text/plain", "Retry-After": "2" }); res.end("Upstream unavailable."); }

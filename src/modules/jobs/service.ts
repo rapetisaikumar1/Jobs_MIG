@@ -98,6 +98,7 @@ export async function changeJobStatus(ctx: StaffContext, jobId: string, action: 
   await assertJobAccess(ctx, jobId);
 
   return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT 1 FROM jobs WHERE id = ${jobId}::uuid FOR UPDATE`; // serialize transitions
     const job = await tx.job.findUniqueOrThrow({ where: { id: jobId } });
     if (!rule.from.includes(job.status)) throw new AppError(`A ${job.status.toLowerCase()} job cannot be changed this way.`);
     const now = new Date();
