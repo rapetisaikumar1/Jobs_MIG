@@ -213,7 +213,9 @@ export function RoleForm({ roleId, defaultValues, groups, readOnly }: { roleId?:
       <fieldset disabled={readOnly} className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="name" label="Role name" required error={formState.errors.name?.message}><Input id="name" {...register("name")} /></Field>
-          <Field id="description" label="Description" error={formState.errors.description?.message}><Textarea id="description" rows={1} className="min-h-9" {...register("description")} /></Field>
+          <Field id="description" label="Description" hint="Optional · shown next to the role when assigning it to users" error={formState.errors.description?.message} className="sm:col-span-2">
+            <Textarea id="description" rows={2} {...register("description")} />
+          </Field>
         </div>
         <div>
           <p className="mb-2 text-sm font-medium">Permissions <span className="font-normal text-muted-foreground">({selected.size} selected)</span></p>

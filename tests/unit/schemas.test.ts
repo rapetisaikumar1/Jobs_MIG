@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { registerSchema } from "@/modules/auth/schemas";
+import { registerSchema, verifyEmailCodeSchema } from "@/modules/auth/schemas";
 import { jobSchema } from "@/modules/jobs/schemas";
 import { candidateSelfProfileSchema } from "@/modules/candidates/schemas";
 import { applySchema } from "@/modules/applications/schemas";
@@ -22,6 +22,17 @@ describe("registration", () => {
     expect(registerSchema.safeParse({ ...valid, confirmPassword: "nope" }).success).toBe(false);
     expect(registerSchema.safeParse({ ...valid, password: "short", confirmPassword: "short" }).success).toBe(false);
     expect(registerSchema.safeParse({ ...valid, acceptPrivacy: false }).success).toBe(false);
+  });
+});
+
+describe("sign-up verification code", () => {
+  it("accepts the emailed code, ignoring spaces, and normalizes the email", () => {
+    expect(verifyEmailCodeSchema.parse({ email: "Jo@Example.com", code: " 123 456 " })).toEqual({ email: "jo@example.com", code: "123456" });
+  });
+  it("rejects codes that are not 6-10 digits", () => {
+    for (const code of ["", "12345", "12a456", "12345678901"]) {
+      expect(verifyEmailCodeSchema.safeParse({ email: "jo@example.com", code }).success).toBe(false);
+    }
   });
 });
 

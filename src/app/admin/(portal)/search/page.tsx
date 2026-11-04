@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FileSearch } from "lucide-react";
+import { ChevronDown, FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -62,7 +62,7 @@ export default async function AdvancedSearchPage({ searchParams }: { searchParam
   const v = (n: number | undefined) => (n === undefined ? "" : String(n));
 
   const activeCount = Object.entries(f).filter(([k, val]) => k !== "sort" && (Array.isArray(val) ? val.length > 0 : val !== undefined)).length;
-  const section = "border-t px-4 py-4";
+  const section = "group border-t px-4 py-4";
   const summary = "flex cursor-pointer list-none items-center justify-between text-sm font-semibold [&::-webkit-details-marker]:hidden";
   const two = "grid grid-cols-2 gap-2";
 
@@ -84,13 +84,13 @@ export default async function AdvancedSearchPage({ searchParams }: { searchParam
               <div className={two}><Input name="minExp" type="number" min={0} defaultValue={v(f.minExp)} placeholder="Min" /><Input name="maxExp" type="number" min={0} defaultValue={v(f.maxExp)} placeholder="Max" /></div>
             </F>
             <div className={two}>
-              <F label="Relevant exp. (min)"><Input name="minRelevantExp" type="number" min={0} defaultValue={v(f.minRelevantExp)} /></F>
+              <F label="Min. relevant exp."><Input name="minRelevantExp" type="number" min={0} defaultValue={v(f.minRelevantExp)} /></F>
               <F label="Source"><Select name="source" defaultValue={f.source ?? ""}><Opt labels={SOURCE_LABELS} /></Select></F>
             </div>
           </div>
 
           <FilterSection className={section} initialOpen={!!(f.country || f.state || f.city || f.preferredLocation || f.workArrangement || f.employmentType)}>
-            <summary className={summary}>Location &amp; preferences <span className="text-muted-foreground">+</span></summary>
+            <summary className={summary}>Location &amp; preferences <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden /></summary>
             <div className="mt-3 space-y-3">
               <div className={two}>
                 <F label="Country"><Select name="country" defaultValue={f.country ?? ""}><Opt labels={COUNTRY_LABELS} /></Select></F>
@@ -114,7 +114,7 @@ export default async function AdvancedSearchPage({ searchParams }: { searchParam
           </FilterSection>
 
           <FilterSection className={section} initialOpen={!!(f.minSalary !== undefined || f.maxSalary !== undefined || f.currency || f.compensationType || f.availableWithinDays !== undefined || f.workAuthCountry || f.workAuthStatus)}>
-            <summary className={summary}>Pay, availability &amp; authorization <span className="text-muted-foreground">+</span></summary>
+            <summary className={summary}>Pay, availability &amp; authorization <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden /></summary>
             <div className="mt-3 space-y-3">
               <F label="Expected salary / rate">
                 <div className={two}><Input name="minSalary" type="number" min={0} defaultValue={v(f.minSalary)} placeholder="Min" /><Input name="maxSalary" type="number" min={0} defaultValue={v(f.maxSalary)} placeholder="Max" /></div>
@@ -132,7 +132,7 @@ export default async function AdvancedSearchPage({ searchParams }: { searchParam
           </FilterSection>
 
           <FilterSection className={section} initialOpen={!!(f.qualification || f.education || f.certification)}>
-            <summary className={summary}>Education &amp; certifications <span className="text-muted-foreground">+</span></summary>
+            <summary className={summary}>Education &amp; certifications <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden /></summary>
             <div className="mt-3 space-y-3">
               <F label="Education level"><Select name="qualification" defaultValue={f.qualification ?? ""}><Opt labels={QUALIFICATION_LABELS} /></Select></F>
               <F label="Education text"><Input name="education" defaultValue={f.education} placeholder="Computer Science" /></F>
@@ -141,7 +141,7 @@ export default async function AdvancedSearchPage({ searchParams }: { searchParam
           </FilterSection>
 
           <FilterSection className={section} initialOpen={!!(f.name || f.email || f.phone || f.candidateId)}>
-            <summary className={summary}>Identity <span className="text-muted-foreground">+</span></summary>
+            <summary className={summary}>Identity <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden /></summary>
             <div className="mt-3 space-y-3">
               <F label="Candidate name"><Input name="name" defaultValue={f.name} /></F>
               <div className={two}>
@@ -153,7 +153,7 @@ export default async function AdvancedSearchPage({ searchParams }: { searchParam
           </FilterSection>
 
           <FilterSection className={section} initialOpen={!!(f.applicationStatus || f.jobId || f.appliedFrom || f.appliedTo)}>
-            <summary className={summary}>Applications <span className="text-muted-foreground">+</span></summary>
+            <summary className={summary}>Applications <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden /></summary>
             <div className="mt-3 space-y-3">
               <div className={two}>
                 <F label="Status"><Select name="applicationStatus" defaultValue={f.applicationStatus ?? ""}><Opt labels={APPLICATION_STATUS_LABELS} /></Select></F>

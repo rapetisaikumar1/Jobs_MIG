@@ -12,6 +12,10 @@ export const RATE_LIMITS = {
   // 5 per email address; a shared office/campus IP may register many different people.
   register: { limit: 5, windowSeconds: 60 * 60, ipLimit: 30 },
   passwordReset: { limit: 5, windowSeconds: 60 * 60 },
+  // Every code attempt counts: 10 guesses per email per 15 minutes (Supabase also expires and limits codes).
+  verifyCode: { limit: 10, windowSeconds: 15 * 60, ipLimit: 60 },
+  // Starting a Google sign-in (cheap, but keeps bots from hammering the OAuth endpoint).
+  oauthStart: { limit: 30, windowSeconds: 15 * 60 },
   // Signed-in actions: the per-user limit is the real guard. The IP limit is higher so
   // many candidates behind one office/campus IP (NAT) are not blocked by each other.
   apply: { limit: 20, windowSeconds: 60 * 60, ipLimit: 300 },

@@ -44,7 +44,7 @@ export function CandidateTable({
 }) {
   return (
     <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
-      <Table>
+      <Table className="[&_td]:px-3 [&_th]:px-3">
         <THead>
           <TR>
             <TH>Candidate</TH>
@@ -66,7 +66,8 @@ export function CandidateTable({
                   <Avatar name={fullName(c)} />
                   <div className="min-w-0">
                   <Link href={`/admin/candidates/${c.displayId}`} className="font-medium hover:underline">{fullName(c)}</Link>
-                  <p className="text-xs text-muted-foreground">{c.currentTitle ?? c.professionalTitle ?? "No title"} · <span className="whitespace-nowrap">{c.displayId}</span></p>
+                  <p className="truncate text-xs text-muted-foreground">{c.currentTitle ?? c.professionalTitle ?? "No title"}</p>
+                  <p className="whitespace-nowrap text-xs text-muted-foreground">{c.displayId}</p>
                   {c.applications?.length ? (
                     <p className="mt-1 text-xs text-muted-foreground">
                       Applied:{" "}
@@ -82,16 +83,16 @@ export function CandidateTable({
                   </div>
                   </div>
                 </TD>
-                <TD className="max-w-72">
+                <TD className="min-w-48 max-w-64">
                   <div className="flex flex-wrap gap-1">
-                    {skills.slice(0, 6).map((s, i) => (
+                    {skills.slice(0, 4).map((s, i) => (
                       <span key={s} className={i < primary.length ? "rounded-md border border-foreground/15 bg-foreground/[0.04] px-1.5 py-0.5 text-[11px] font-medium" : "rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"}>{s}</span>
                     ))}
-                    {skills.length > 6 && <span className="text-[11px] text-muted-foreground">+{skills.length - 6}</span>}
+                    {skills.length > 4 && <span className="self-center text-[11px] text-muted-foreground" title={skills.slice(4).join(", ")}>+{skills.length - 4} more</span>}
                   </div>
                 </TD>
                 <TD className="whitespace-nowrap">{formatYears(c.totalExperienceYears)}</TD>
-                <TD className="whitespace-nowrap" title={formatLocation(c.city, c.state, c.country)}>{[c.city, c.state ? regionName(c.country, c.state) : null].filter(Boolean).join(", ") || c.country}</TD>
+                <TD className="min-w-32 max-w-44" title={formatLocation(c.city, c.state, c.country)}>{[c.city, c.state ? regionName(c.country, c.state) : null].filter(Boolean).join(", ") || c.country}</TD>
                 <TD><Badge tone={c.source === "JOB_PORTAL" ? "info" : "neutral"}>{SOURCE_LABELS[c.source]}</Badge></TD>
                 {showActions && (
                   <TD className="whitespace-nowrap text-right">

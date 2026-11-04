@@ -17,6 +17,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "setup:storage": "tsx scripts/setup-storage.ts",
+    "setup:auth": "tsx --env-file=.env --env-file=.env.supabase.local scripts/configure-supabase-auth.ts",
     "create-super-admin": "tsx scripts/create-super-admin.ts",
     "postinstall": "prisma generate"
   },

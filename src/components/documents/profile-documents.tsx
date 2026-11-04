@@ -87,7 +87,8 @@ export function ProfileDocuments({
       )}
 
       {canEdit && (
-        <div className="grid gap-2 rounded-md border bg-muted/30 p-3 sm:grid-cols-[180px_1fr] sm:items-start">
+        <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+          <p className="text-sm font-medium">Upload a document</p>
           <Select value={type} onChange={(e) => setType(e.target.value as DocumentType)} aria-label="Document type">
             {(Object.keys(DOCUMENT_TYPE_LABELS) as DocumentType[]).map((t) => (
               <option key={t} value={t}>

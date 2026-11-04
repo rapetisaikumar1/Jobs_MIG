@@ -14,6 +14,7 @@ import {
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  verifyEmailCodeSchema,
 } from "@/modules/auth/schemas";
 import type { z } from "zod";
 
@@ -44,8 +45,40 @@ export async function registerAction(values: z.input<typeof registerSchema>): Pr
       if (error.code !== "user_already_exists") console.error("[auth] sign-up failed", error.code, error.message);
     }
     // Same response whether or not the email is already registered (prevents account enumeration).
-    return ok(undefined, "Check your email for a link to verify your account.");
+    return ok(undefined, "We've emailed you a 6-digit verification code.");
   });
+}
+
+/**
+ * Completes sign-up: checks the one-time code from the verification email. On success
+ * Supabase confirms the email and starts a session, and the candidate account is created.
+ */
+export async function verifyEmailCodeAction(values: z.input<typeof verifyEmailCodeSchema>): Promise<ActionResult> {
+  const result = await runAction(async () => {
+    const parsed = verifyEmailCodeSchema.safeParse(values);
+    if (!parsed.success) return validationFailure(parsed.error);
+    const { email, code } = parsed.data;
+    await enforceRateLimit("verifyCode", email);
+
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
+    if (error || !data.user) {
+      // Wrong and expired codes both come back as "otp_expired"; anything else is worth logging.
+      if (error && error.code !== "otp_expired") console.error("[auth] code verification failed", error.code, error.message);
+      return fail("That code is incorrect or has expired. Check the latest email, or send a new code.");
+    }
+
+    const appUser = await prisma.user.findUnique({ where: { id: data.user.id }, select: { type: true } });
+    if (appUser?.type === "STAFF") return ok("/admin/jobs");
+    const account = await ensureCandidateAccount(data.user);
+    if (!account || !account.isActive) {
+      await supabase.auth.signOut();
+      return fail("This account cannot sign in to the job portal. Please contact us.");
+    }
+    return ok("/candidate/profile?welcome=1");
+  });
+  if (!result.ok) return result;
+  redirect(result.data);
 }
 
 export async function loginAction(
@@ -66,7 +99,11 @@ export async function loginAction(
         return fail("This account has been deactivated. Contact an administrator.");
       }
       if (error?.code === "email_not_confirmed") {
-        return fail("Please verify your email address first. Check your inbox for the verification link.");
+        return fail(
+          portal === "candidate"
+            ? "Please verify your email address first. Enter the code we emailed you, or send a new one."
+            : "Please verify your email address first. Check your inbox for the verification link.",
+        );
       }
       return fail("Incorrect email or password.");
     }
@@ -127,7 +164,7 @@ export async function resendVerificationAction(values: z.input<typeof forgotPass
       email: parsed.data.email,
       options: { emailRedirectTo: confirmUrl("/candidate/profile?welcome=1") },
     });
-    return ok(undefined, "If the account is awaiting verification, a new link has been sent.");
+    return ok(undefined, "If the account is awaiting verification, a new code has been sent.");
   });
 }
 

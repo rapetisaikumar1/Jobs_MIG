@@ -14,9 +14,31 @@ export type CandidateSignupMetadata = {
   country: Country;
 };
 
+/** Candidates may also sign up with Google; Google only issues verified email addresses. */
+export function isGoogleUser(authUser: AuthUser): boolean {
+  const app = (authUser.app_metadata ?? {}) as { provider?: string; providers?: string[] };
+  return app.provider === "google" || (app.providers ?? []).includes("google");
+}
+
+/** First and last name from the sign-up form, or from the Google profile. */
+function signupName(authUser: AuthUser): { firstName: string; lastName: string } {
+  const meta = (authUser.user_metadata ?? {}) as Partial<CandidateSignupMetadata> & {
+    given_name?: string;
+    family_name?: string;
+    full_name?: string;
+    name?: string;
+  };
+  if (meta.first_name?.trim()) return { firstName: meta.first_name.trim(), lastName: meta.last_name?.trim() ?? "" };
+  if (meta.given_name?.trim()) return { firstName: meta.given_name.trim(), lastName: meta.family_name?.trim() ?? "" };
+  const full = (meta.full_name ?? meta.name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (full.length) return { firstName: full[0].slice(0, 80), lastName: full.slice(1).join(" ").slice(0, 80) };
+  return { firstName: "Candidate", lastName: "" };
+}
+
 /**
  * Returns the application user for an authenticated Supabase user, creating the
- * candidate account and profile on first sign-in after email verification.
+ * candidate account and profile on first sign-in after email verification
+ * (sign-up form + code) or after the first Google sign-in.
  *
  * Duplicate handling: if a recruiter already created an internal profile with the
  * same (now verified) email address, that profile is linked to the new account
@@ -27,10 +49,11 @@ export async function ensureCandidateAccount(authUser: AuthUser): Promise<User |
   if (existing) return existing;
 
   const meta = (authUser.user_metadata ?? {}) as Partial<CandidateSignupMetadata>;
-  if (meta.account_type !== "candidate" || !authUser.email || !authUser.email_confirmed_at) return null;
+  if ((meta.account_type !== "candidate" && !isGoogleUser(authUser)) || !authUser.email || !authUser.email_confirmed_at) return null;
 
   const email = authUser.email.toLowerCase();
   const country: Country = meta.country === "US" || meta.country === "CA" ? meta.country : "OTHER";
+  const { firstName, lastName } = signupName(authUser);
 
   try {
     const { user, profileId } = await prisma.$transaction(async (tx) => {
@@ -38,8 +61,8 @@ export async function ensureCandidateAccount(authUser: AuthUser): Promise<User |
         data: {
           id: authUser.id,
           email,
-          firstName: meta.first_name?.trim() || "Candidate",
-          lastName: meta.last_name?.trim() || "",
+          firstName,
+          lastName,
           type: "CANDIDATE",
         },
       });

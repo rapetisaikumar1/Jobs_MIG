@@ -15,7 +15,9 @@ export default async function MyApplicationsPage() {
   const [applications, timeZone] = await Promise.all([listOwnApplications(profile.id), getViewerTimeZone()]);
   return (
     <div>
-      <h2 className="mb-4 text-lg font-semibold">My applications ({applications.length})</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
+        {applications.length} {applications.length === 1 ? "application" : "applications"}
+      </p>
       {applications.length ? (
         <MyApplicationsTable rows={applications} timeZone={timeZone} />
       ) : (

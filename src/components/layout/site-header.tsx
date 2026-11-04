@@ -18,7 +18,7 @@ export async function SiteHeader() {
   const viewer = await getViewer();
   const navLinks = [
     { href: "/jobs", label: "Find jobs" },
-    ...(viewer?.type === "CANDIDATE" ? [{ href: "/candidate/dashboard", label: "My applications" }] : []),
+    ...(viewer?.type === "CANDIDATE" ? [{ href: "/candidate/dashboard", label: "My account" }] : []),
     ...(viewer?.type === "STAFF" ? [{ href: "/admin/jobs", label: "Admin portal" }] : []),
   ];
 

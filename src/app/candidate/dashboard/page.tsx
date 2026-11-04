@@ -35,8 +35,10 @@ export default async function CandidateDashboardPage() {
       </div>
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">My applications</h2>
-          <Link href="/jobs" className={buttonVariants({ variant: "outline", size: "sm" })}>Browse jobs</Link>
+          <h2 className="text-lg font-semibold">Recent applications</h2>
+          {applications.length > 0 && (
+            <Link href="/candidate/applications" className={buttonVariants({ variant: "outline", size: "sm" })}>View all</Link>
+          )}
         </div>
         {applications.length ? (
           <MyApplicationsTable rows={applications.slice(0, 10)} timeZone={timeZone} />

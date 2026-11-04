@@ -31,6 +31,8 @@ import { syncRolesAndPermissions } from "@/modules/access-control/sync";
 import { deleteRole, saveRole } from "@/modules/access-control/admin-service";
 import { addCandidateToJob, submitPortalApplication, updateApplicationStatus } from "@/modules/applications/service";
 import { createInternalCandidate, updateOwnProfile } from "@/modules/candidates/service";
+import { ensureCandidateAccount } from "@/modules/auth/provisioning";
+import type { User as AuthUser } from "@supabase/supabase-js";
 import { candidateSelfProfileSchema, staffCandidateSchema } from "@/modules/candidates/schemas";
 import { EMPTY_STAFF_CANDIDATE, profileToFormValues } from "@/modules/candidates/form-values";
 import { createUploadTicket } from "@/modules/documents/service";
@@ -288,5 +290,36 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     const results = [];
     for (let i = 0; i < 4; i++) results.push((await hitRateLimit("test:key", rule)).allowed);
     expect(results).toEqual([true, true, true, false]);
+  });
+  it("creates a job portal candidate on first Google sign-in, and never for unverified or non-candidate sign-ups", async () => {
+    const authUser = (over: Partial<AuthUser>): AuthUser =>
+      ({
+        id: crypto.randomUUID(), aud: "authenticated", created_at: new Date().toISOString(),
+        email_confirmed_at: new Date().toISOString(), app_metadata: {}, user_metadata: {}, ...over,
+      }) as AuthUser;
+
+    const google = authUser({
+      email: "Taylor.Reid@Gmail.com",
+      app_metadata: { provider: "google", providers: ["google"] },
+      user_metadata: { full_name: "Taylor Morgan Reid", email_verified: true },
+    });
+    const user = await ensureCandidateAccount(google);
+    expect(user).toMatchObject({ type: "CANDIDATE", email: "taylor.reid@gmail.com", firstName: "Taylor", lastName: "Morgan Reid" });
+    const profile = await prisma.candidateProfile.findUniqueOrThrow({ where: { userId: google.id } });
+    expect(profile).toMatchObject({ source: "JOB_PORTAL", country: "OTHER", phone: null });
+    // Second sign-in returns the same account.
+    expect((await ensureCandidateAccount(google))?.id).toBe(google.id);
+
+    // Email sign-up still needs a verified address; other accounts are never provisioned as candidates.
+    const unverified = authUser({ email: "pending@test.dev", email_confirmed_at: undefined, user_metadata: { account_type: "candidate", first_name: "P" } });
+    expect(await ensureCandidateAccount(unverified)).toBeNull();
+    expect(await ensureCandidateAccount(authUser({ email: "someone@test.dev", app_metadata: { provider: "email" } }))).toBeNull();
+
+    // A recruiter-added profile with the same email is linked, not duplicated.
+    await createInternalCandidate(admin, candidateInput({ firstName: "Sam", lastName: "Lee", email: "sam.lee@gmail.com", phone: "416-555-0142" }));
+    const sam = authUser({ email: "sam.lee@gmail.com", app_metadata: { provider: "google", providers: ["google"] }, user_metadata: { name: "Sam Lee" } });
+    await ensureCandidateAccount(sam);
+    expect((await prisma.candidateProfile.findUniqueOrThrow({ where: { email: "sam.lee@gmail.com" } })).userId).toBe(sam.id);
+    expect(await prisma.candidateProfile.count({ where: { email: "sam.lee@gmail.com" } })).toBe(1);
   });
 });
