@@ -181,6 +181,9 @@ export async function updateApplicationStatus(
 ) {
   await assertApplicationAccess(ctx, input.applicationId);
   await prisma.$transaction(async (tx) => {
+    // Row lock: concurrent changes are serialized so each history row's fromStatus is the
+    // status it actually replaced (without it, simultaneous updates recorded stale fromStatus).
+    await tx.$executeRaw`SELECT 1 FROM applications WHERE id = ${input.applicationId}::uuid FOR UPDATE`;
     const current = await tx.application.findUniqueOrThrow({ where: { id: input.applicationId } });
     if (current.status === input.status) throw new AppError("The application already has this status.");
     await tx.application.update({ where: { id: current.id }, data: { status: input.status } });
@@ -191,6 +194,8 @@ export async function updateApplicationStatus(
         toStatus: input.status,
         changedById: ctx.user.id,
         note: input.note ?? null,
+        // Taken after the lock; the column default (transaction start) can order rows wrongly.
+        changedAt: new Date(),
       },
     });
   });

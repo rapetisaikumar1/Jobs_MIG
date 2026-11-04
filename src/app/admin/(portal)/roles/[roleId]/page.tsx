@@ -8,13 +8,14 @@ import { ActionButton } from "@/components/forms/action-button";
 import { RoleForm } from "@/components/admin/access-forms";
 import { prisma } from "@/lib/prisma";
 import { uuid } from "@/lib/validation";
+import { param, type SearchParams } from "@/lib/pagination";
 import { requireStaff } from "@/modules/access-control/context";
 import { LOCKED_ROLE_KEYS, PERMISSION_DESCRIPTIONS, PERMISSION_GROUPS, PERMISSIONS } from "@/modules/access-control/permissions";
 import { deleteRoleAction } from "@/modules/access-control/actions";
 
 export const metadata: Metadata = { title: "Role" };
 
-export default async function RolePage({ params }: { params: Promise<{ roleId: string }> }) {
+export default async function RolePage({ params, searchParams }: { params: Promise<{ roleId: string }>; searchParams: Promise<SearchParams> }) {
   const ctx = await requireStaff(PERMISSIONS.ROLE_MANAGE);
   const id = uuid.safeParse((await params).roleId);
   if (!id.success) notFound();
@@ -27,7 +28,7 @@ export default async function RolePage({ params }: { params: Promise<{ roleId: s
   async function remove() {
     "use server";
     const result = await deleteRoleAction({ roleId: id.data! });
-    if (result.ok) redirect("/admin/roles");
+    if (result.ok) redirect("/admin/roles?notice=deleted");
     return result;
   }
 
@@ -49,6 +50,7 @@ export default async function RolePage({ params }: { params: Promise<{ roleId: s
           </ActionButton>
         )}
       />
+      {param(await searchParams, "notice") === "created" && <Alert variant="success" className="mb-4">Role {role.name} created.</Alert>}
       {locked && <Alert variant="neutral" className="mb-4">The {role.name} role is built in and cannot be changed.</Alert>}
       {canDelete && inUse && (
         <Alert variant="neutral" className="mb-4">

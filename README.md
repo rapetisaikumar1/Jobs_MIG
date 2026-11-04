@@ -131,7 +131,13 @@ npm run typecheck && npm run lint
   - recruiter job scoping
   - rate limiting
 
-  They **truncate every table**, so point `TEST_DATABASE_URL` at a disposable database with the migrations applied (`DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate`). Hosted Supabase URLs are refused.
+  They **truncate every table**, so point `TEST_DATABASE_URL` at a disposable database with the migrations applied (`DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate`). Hosted Supabase URLs, and the same URL as `DATABASE_URL`, are refused. To run them with plain `npm test`, put the URL in `.env.test.local` (git-ignored), e.g. with local Supabase:
+
+  ```bash
+  docker exec supabase_db_<project> createdb -U postgres mig_test
+  echo 'TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/mig_test"' > .env.test.local
+  DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/mig_test npm run db:migrate
+  ```
 - **End-to-end tests** (`tests/e2e`): public pages and access control run anywhere. The full journey (staff creates and publishes a job, candidate uploads a resume and applies, staff opens the case file and downloads the resume, the status update is visible to the candidate) needs a seeded environment with real Supabase and these variables: `E2E_STAFF_EMAIL`, `E2E_STAFF_PASSWORD`, `E2E_CANDIDATE_EMAIL`, `E2E_CANDIDATE_PASSWORD`.
 
 ---

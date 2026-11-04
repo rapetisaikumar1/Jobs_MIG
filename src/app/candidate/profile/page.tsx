@@ -17,7 +17,7 @@ export default async function CandidateProfilePage({ searchParams }: { searchPar
   const welcome = !!param(await searchParams, "welcome");
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
       <div className="min-w-0 space-y-6">
         {welcome && <Alert variant="success">Your email is verified. Complete your profile to start applying.</Alert>}
         <Card>

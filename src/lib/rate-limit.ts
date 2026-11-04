@@ -9,10 +9,13 @@ type Rule = { limit: number; windowSeconds: number; ipLimit?: number };
 export const RATE_LIMITS = {
   // Counts failed sign-ins only (see checkRateLimit / recordRateLimitHit), so offices behind one IP are not locked out.
   login: { limit: 10, windowSeconds: 15 * 60, ipLimit: 50 },
-  register: { limit: 5, windowSeconds: 60 * 60 },
+  // 5 per email address; a shared office/campus IP may register many different people.
+  register: { limit: 5, windowSeconds: 60 * 60, ipLimit: 30 },
   passwordReset: { limit: 5, windowSeconds: 60 * 60 },
-  apply: { limit: 20, windowSeconds: 60 * 60 },
-  upload: { limit: 40, windowSeconds: 60 * 60 },
+  // Signed-in actions: the per-user limit is the real guard. The IP limit is higher so
+  // many candidates behind one office/campus IP (NAT) are not blocked by each other.
+  apply: { limit: 20, windowSeconds: 60 * 60, ipLimit: 300 },
+  upload: { limit: 40, windowSeconds: 60 * 60, ipLimit: 600 },
 } satisfies Record<string, Rule>;
 
 /**

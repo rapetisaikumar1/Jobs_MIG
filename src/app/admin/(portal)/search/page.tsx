@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination } from "@/components/shared/pagination";
+import { Pagination, redirectPastLastPage } from "@/components/shared/pagination";
 import { CandidateResultCard } from "@/components/candidates/candidate-result-card";
 import {
   APPLICATION_STATUS_LABELS,
@@ -58,6 +58,7 @@ export default async function AdvancedSearchPage({ searchParams }: { searchParam
   const page = parsePage(params.page);
   const active = hasAnyFilter(f);
   const result = active ? await searchCandidates(ctx, f, page, PAGE_SIZE) : null;
+  if (result) redirectPastLastPage("/admin/search", params, page, PAGE_SIZE, result.total);
   const v = (n: number | undefined) => (n === undefined ? "" : String(n));
 
   const activeCount = Object.entries(f).filter(([k, val]) => k !== "sort" && (Array.isArray(val) ? val.length > 0 : val !== undefined)).length;

@@ -41,6 +41,10 @@ describe("job form", () => {
     expect(jobSchema.safeParse({ ...base, state: "TX" }).success).toBe(false);
     expect(jobSchema.safeParse({ ...base, salaryPublic: true }).success).toBe(false);
   });
+  it("rejects an application deadline in the past", () => {
+    expect(jobSchema.safeParse({ ...base, applicationDeadline: "2020-01-01" }).success).toBe(false);
+    expect(jobSchema.safeParse({ ...base, applicationDeadline: "2999-01-01" }).success).toBe(true);
+  });
   it("requires at least one required skill", () => {
     expect(jobSchema.safeParse({ ...base, requiredSkills: [] }).success).toBe(false);
   });

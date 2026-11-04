@@ -75,7 +75,7 @@ export default async function JobDetailPage({ params }: Props) {
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {acceptingApplications ? <Badge tone="success" dot>Open</Badge> : <Badge tone="neutral" dot>Closed</Badge>}
-                  {job.isFeatured && <Badge tone="dark">Featured</Badge>}
+                  {acceptingApplications && job.isFeatured && <Badge tone="dark">Featured</Badge>}
                   {alreadyApplied && <Badge tone="info" dot>Already applied</Badge>}
                   <JobPill>{WORK_ARRANGEMENT_LABELS[job.workArrangement]}</JobPill>
                   <JobPill>{EMPLOYMENT_TYPE_LABELS[job.employmentType]}</JobPill>

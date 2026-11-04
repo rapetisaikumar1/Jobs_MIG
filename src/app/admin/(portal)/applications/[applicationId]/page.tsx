@@ -145,7 +145,7 @@ export default async function ApplicationFolderPage({ params, searchParams }: { 
             <Card>
               <CardHeader><CardTitle>Status</CardTitle></CardHeader>
               <CardContent className="space-y-5">
-                {canUpdate ? <StatusUpdateForm key={app.status} applicationId={app.id} status={app.status} /> : <div className="text-sm">Current: <ApplicationStatusBadge status={app.status} /></div>}
+                {canUpdate ? <StatusUpdateForm applicationId={app.id} status={app.status} /> : <div className="text-sm">Current: <ApplicationStatusBadge status={app.status} /></div>}
                 {canAssign && <AssignRecruiterForm applicationId={app.id} current={app.assignedRecruiter?.id ?? ""} staff={staff.map((s) => ({ id: s.id, name: fullName(s) }))} />}
               </CardContent>
             </Card>

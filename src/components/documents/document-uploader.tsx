@@ -23,6 +23,7 @@ export function DocumentUploader({
   value,
   onChange,
   invalid,
+  onStart,
 }: {
   id: string;
   type: DocumentType;
@@ -30,6 +31,8 @@ export function DocumentUploader({
   value: UploadedFile | null;
   onChange: (file: UploadedFile | null) => void;
   invalid?: boolean;
+  /** Called when a new file is picked, so parents can clear earlier outcome messages. */
+  onStart?: () => void;
 }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -37,6 +40,7 @@ export function DocumentUploader({
 
   async function handleFile(file: File) {
     setError(null);
+    onStart?.();
     const check = checkUpload(type, file.name, file.size);
     if (!check.ok) return setError(check.error);
 

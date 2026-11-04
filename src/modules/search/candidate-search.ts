@@ -31,7 +31,7 @@ export const SEARCH_SORTS = {
   updated: "Recently updated",
   newest: "Newest profiles",
   experience: "Most experience",
-  name: "Name (A–Z)",
+  name: "Last name (A–Z)",
 } as const;
 export type SearchSort = keyof typeof SEARCH_SORTS;
 

@@ -50,6 +50,7 @@ const PASSWORD_HINT = "At least 10 characters, including a letter and a number."
 /** Create a staff login directly: name, email, initial password and roles. */
 export function CreateStaffUserForm({ roles, defaultRoleIds }: { roles: Option[]; defaultRoleIds: string[] }) {
   const router = useRouter();
+  const [navigating, startNavigation] = React.useTransition();
   const [msg, setMsg] = React.useState<Message>(null);
   const form = useForm<StaffUserCreateFormValues>({
     resolver: zodResolver(staffUserCreateSchema),
@@ -64,7 +65,7 @@ export function CreateStaffUserForm({ roles, defaultRoleIds }: { roles: Option[]
     if (!result.ok) {
       setMsg({ ok: false, text: result.error });
       applyServerErrors(result, setError);
-    } else router.push(`/admin/users/${result.data.id}?notice=created`);
+    } else startNavigation(() => router.push(`/admin/users/${result.data.id}?notice=created`));
   });
 
   return (
@@ -90,7 +91,7 @@ export function CreateStaffUserForm({ roles, defaultRoleIds }: { roles: Option[]
         The account is active immediately. Share the initial password with the user securely; they can change it later from “Forgot password”.
       </p>
       <div className="flex justify-end">
-        <Button type="submit" disabled={formState.isSubmitting}>{formState.isSubmitting ? "Creating…" : "Create user"}</Button>
+        <Button type="submit" disabled={formState.isSubmitting || navigating}>{formState.isSubmitting || navigating ? "Creating…" : "Create user"}</Button>
       </div>
     </form>
   );
@@ -178,17 +179,19 @@ type PermissionGroup = { label: string; permissions: { code: string; description
 /** Role editor with permissions grouped by area. */
 export function RoleForm({ roleId, defaultValues, groups, readOnly }: { roleId?: string; defaultValues: RoleFormValues; groups: PermissionGroup[]; readOnly?: boolean }) {
   const router = useRouter();
+  const [navigating, startNavigation] = React.useTransition();
   const [msg, setMsg] = React.useState<Message>(null);
   const form = useForm<RoleFormValues>({ resolver: zodResolver(roleSchema), defaultValues });
   const { register, handleSubmit, formState, setError, watch, setValue } = form;
   const selected = new Set(watch("permissions") ?? []);
 
   const onSubmit = handleSubmit(async (values) => {
+    setMsg(null);
     const result = await saveRoleAction(roleId ?? null, values);
     if (!result.ok) {
       setMsg({ ok: false, text: result.error });
       applyServerErrors(result, setError);
-    } else if (!roleId) router.push(`/admin/roles/${result.data.id}`);
+    } else if (!roleId) startNavigation(() => router.push(`/admin/roles/${result.data.id}?notice=created`));
     else {
       setMsg({ ok: true, text: "Role saved." });
       router.refresh();
@@ -243,7 +246,7 @@ export function RoleForm({ roleId, defaultValues, groups, readOnly }: { roleId?:
           </div>
         </div>
       </fieldset>
-      {!readOnly && <div className="flex justify-end"><Button type="submit" disabled={formState.isSubmitting}>Save role</Button></div>}
+      {!readOnly && <div className="flex justify-end"><Button type="submit" disabled={formState.isSubmitting || navigating}>{formState.isSubmitting || navigating ? "Saving…" : "Save role"}</Button></div>}
     </form>
   );
 }

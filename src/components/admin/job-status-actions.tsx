@@ -15,9 +15,10 @@ const LABELS: Record<JobStatusAction, { label: string; confirm?: string; variant
 export function JobStatusActions({ jobId, actions }: { jobId: string; actions: JobStatusAction[] }) {
   return (
     <>
-      {actions.map((action) => (
+      {actions.map((action, index) => (
         <ActionButton
-          key={action}
+          // Keyed by position so the outcome message survives the refresh that swaps the available actions.
+          key={index}
           variant={LABELS[action].variant ?? "outline"}
           confirm={LABELS[action].confirm}
           action={() => changeJobStatusAction({ jobId, action })}

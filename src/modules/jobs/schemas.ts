@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { openDeadlineCutoff } from "@/lib/format";
 import {
   COMPENSATION_TYPE_LABELS,
   CURRENCY_LABELS,
@@ -51,6 +52,9 @@ export const jobSchema = z
     }
     if (!regionsFor(v.country).some((r) => r.code === v.state)) {
       ctx.addIssue({ code: "custom", path: ["state"], message: "Select a valid state or province" });
+    }
+    if (v.applicationDeadline && v.applicationDeadline < openDeadlineCutoff()) {
+      ctx.addIssue({ code: "custom", path: ["applicationDeadline"], message: "The deadline cannot be in the past" });
     }
     if (v.salaryPublic && v.compensationMin == null && v.compensationMax == null) {
       ctx.addIssue({ code: "custom", path: ["salaryPublic"], message: "Enter a salary or rate before making it public" });

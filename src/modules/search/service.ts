@@ -51,7 +51,7 @@ export async function searchCandidates(ctx: StaffContext, filters: CandidateSear
   const scope = applicationScopeWhere(ctx);
   const where = buildCandidateSearchWhere(filters, { applicationScope: scope, raw });
 
-  const [total, candidates] = await Promise.all([
+  const [total, rows] = await Promise.all([
     prisma.candidateProfile.count({ where }),
     prisma.candidateProfile.findMany({
       where,
@@ -65,9 +65,16 @@ export async function searchCandidates(ctx: StaffContext, filters: CandidateSear
           take: 3,
           select: { displayId: true, status: true, job: { select: { displayId: true, title: true } } },
         },
-        _count: { select: { applications: { where: scope } } },
       },
     }),
   ]);
+  // In-scope application counts for this page only (relation _count would group all applications).
+  const counts = await prisma.application.groupBy({
+    by: ["candidateId"],
+    where: { AND: [scope, { candidateId: { in: rows.map((c) => c.id) } }] },
+    _count: { _all: true },
+  });
+  const byCandidate = new Map(counts.map((c) => [c.candidateId, c._count._all]));
+  const candidates = rows.map((c) => ({ ...c, _count: { applications: byCandidate.get(c.id) ?? 0 } }));
   return { total, candidates };
 }

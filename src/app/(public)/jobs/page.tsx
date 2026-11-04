@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Briefcase } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Pagination } from "@/components/shared/pagination";
+import { Pagination, redirectPastLastPage } from "@/components/shared/pagination";
 import { JobCard } from "@/components/jobs/job-card";
 import { JobFilterSidebar } from "@/components/jobs/job-filters";
 import { LiveJobSearch } from "@/components/jobs/live-job-search";
@@ -27,6 +27,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
   ]);
   const skills = (filters.skills ?? []).join(", ");
 
+  redirectPastLastPage("/jobs", params, page, PAGE_SIZE, total);
   return (
     <form action="/jobs" method="get">
       <section className="border-b bg-surface">

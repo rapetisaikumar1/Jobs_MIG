@@ -50,7 +50,7 @@ test("staff publishes; job appears publicly with its posted date", async ({ page
   await page.goto(`/jobs/${jobId}`);
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
   const today = new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(new Date());
-  await expect(page.getByText(today)).toBeVisible();
+  await expect(page.getByText(today).first()).toBeVisible();
 });
 
 test("candidate applies with a resume, sees it tracked, cannot apply twice or open admin", async ({ page }) => {
@@ -59,7 +59,8 @@ test("candidate applies with a resume, sees it tracked, cannot apply twice or op
   await page.getByRole("link", { name: "Apply Now" }).first().click();
   await page.getByLabel("Upload a different resume").check();
   await page.setInputFiles("#resume", path.join(__dirname, "fixtures/resume.pdf"));
-  await expect(page.getByText("resume.pdf")).toBeVisible();
+  // Wait for the upload itself to finish (the saved default resume may share the name).
+  await expect(page.getByRole("button", { name: "Remove file" })).toBeVisible();
   await page.fill("#availability", "Two weeks");
   await page.getByRole("button", { name: "Review application" }).click();
   await page.getByText(/I confirm the information/).click();
@@ -80,8 +81,9 @@ test("candidate applies with a resume, sees it tracked, cannot apply twice or op
 test("the application folder is in the job's case file and staff can open the resume", async ({ page }) => {
   await login(page, staff, "staff");
   await page.goto(`${jobUrl}/case-file`);
-  await expect(page.getByText(/MIG-APP-\d{6} — /)).toBeVisible();
-  await page.locator("summary").first().click();
+  // Case file lists one folder per application; open the folder.
+  await page.getByRole("link", { name: /MIG-APP-\d{6} John Smith/ }).first().click();
+  await expect(page).toHaveURL(/\/admin\/case-files\/MIG-JOB-\d{6}\/MIG-APP-\d{6}$/);
   const download = page.waitForEvent("download");
   await page.getByRole("link", { name: "Download" }).first().click();
   expect((await download).suggestedFilename()).toMatch(/resume\.pdf$/);

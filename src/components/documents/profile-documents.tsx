@@ -101,6 +101,7 @@ export function ProfileDocuments({
             type={type}
             candidateId={candidateId}
             value={null}
+            onStart={() => { setError(null); setSuccess(null); }}
             onChange={async (file) => {
               if (!file) return;
               setError(null);

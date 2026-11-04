@@ -87,6 +87,7 @@ export async function updateStaffUser(
   const roles = await validateRoleAssignment(ctx, input.roleIds);
   const remainsSuperAdmin = roles.some((r) => r.key === SYSTEM_ROLE_KEYS.SUPER_ADMIN);
   if (isSuperAdmin && !remainsSuperAdmin) {
+    if (target.id === ctx.user.id) throw new AppError("You can't remove the Super Admin role from your own account. Ask another Super Admin to do it.");
     if (!ctx.isSuperAdmin) throw new ForbiddenError("Only a Super Admin can remove the Super Admin role.");
     if (target.isActive && (await countOtherActiveSuperAdmins(target.id)) === 0) {
       throw new AppError("At least one active Super Admin is required.");
@@ -135,6 +136,11 @@ export async function saveRole(
     if (!role) throw new AppError("Role not found.");
     if (role.key && LOCKED_ROLE_KEYS.includes(role.key)) throw new AppError(`The ${role.name} role cannot be edited.`);
   }
+  // Role names must be unique regardless of letter case ("Recruiter" vs "RECRUITER").
+  const sameName = await prisma.role.findFirst({
+    where: { name: { equals: input.name.trim(), mode: "insensitive" }, ...(roleId ? { NOT: { id: roleId } } : {}) },
+  });
+  if (sameName) throw new AppError(`A role named "${sameName.name}" already exists.`);
   const permissions = await prisma.permission.findMany({ where: { code: { in: input.permissions } } });
 
   return prisma.$transaction(async (tx) => {

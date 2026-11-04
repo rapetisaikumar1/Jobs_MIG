@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Avatar } from "@/components/shared/avatar";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
-import { CandidateNav } from "@/components/layout/candidate-nav";
+import { CandidateHeading, CandidateNav } from "@/components/layout/candidate-nav";
 import { requireCandidate } from "@/modules/auth/session";
 
 export default async function CandidateLayout({ children }: { children: React.ReactNode }) {
@@ -19,7 +19,7 @@ export default async function CandidateLayout({ children }: { children: React.Re
             <div className="flex items-center gap-4">
               <Avatar name={name} size="lg" />
               <div>
-                <h1 className="text-xl font-semibold tracking-tight">Welcome back, {profile.firstName}</h1>
+                <CandidateHeading firstName={profile.firstName} />
                 <p className="text-sm text-muted-foreground">{profile.email} · Candidate ID {profile.displayId}</p>
               </div>
             </div>

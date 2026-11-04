@@ -2,8 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { getAuthUser } from "@/modules/auth/session";
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const signedIn = !!(await getAuthUser().catch(() => null));
   return (
     <footer className="border-t bg-background">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1.3fr]">
@@ -15,7 +17,7 @@ export function SiteFooter() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Job seekers</h2>
           <ul className="mt-4 space-y-2.5">
             <li><Link href="/jobs" className="hover:underline">Browse jobs</Link></li>
-            <li><Link href="/register" className="hover:underline">Create an account</Link></li>
+            {!signedIn && <li><Link href="/register" className="hover:underline">Create an account</Link></li>}
             <li><Link href="/candidate/dashboard" className="hover:underline">Track applications</Link></li>
           </ul>
         </div>

@@ -38,6 +38,11 @@ export const publicJobSelect = {
 
 export type PublicJob = Prisma.JobGetPayload<{ select: typeof publicJobSelect }>;
 
+/** Never send a hidden salary to the public portal (it would otherwise be serialized into the page payload). */
+export function redactHiddenSalary<T extends Pick<PublicJob, "salaryPublic" | "compensationMin" | "compensationMax">>(job: T): T {
+  return job.salaryPublic ? job : { ...job, compensationMin: null, compensationMax: null };
+}
+
 /** Open for applications: published and the deadline (if any) has not passed. */
 export function openJobsWhere(now = new Date()): Prisma.JobWhereInput {
   return {
@@ -97,7 +102,7 @@ export async function listPublicJobs(filters: PublicJobFilters, page: number, pa
       ...pageArgs(page, pageSize),
     }),
   ]);
-  return { total, jobs };
+  return { total, jobs: jobs.map(redactHiddenSalary) };
 }
 
 export async function listHomepageJobs() {
@@ -110,15 +115,16 @@ export async function listHomepageJobs() {
     }),
     prisma.job.findMany({ where: openJobsWhere(), orderBy: { publishedAt: "desc" }, take: 6, select: publicJobSelect }),
   ]);
-  return { featured, recent };
+  return { featured: featured.map(redactHiddenSalary), recent: recent.map(redactHiddenSalary) };
 }
 
 /** Published or closed jobs are viewable publicly; drafts and archived jobs are not. */
 export async function getPublicJob(displayId: string) {
-  return prisma.job.findFirst({
+  const job = await prisma.job.findFirst({
     where: { displayId: displayId.toUpperCase(), status: { in: ["PUBLISHED", "CLOSED"] } },
     select: publicJobSelect,
   });
+  return job && redactHiddenSalary(job);
 }
 
 export async function listSkillSuggestions(limit = 300) {
@@ -147,7 +153,7 @@ export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters,
         : {},
     ],
   };
-  const [total, jobs] = await Promise.all([
+  const [total, rows] = await Promise.all([
     prisma.job.count({ where }),
     prisma.job.findMany({
       where,
@@ -165,24 +171,41 @@ export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters,
         publishedAt: true,
         caseFile: { select: { displayId: true } },
         assignedRecruiter: { select: { firstName: true, lastName: true } },
-        _count: { select: { applications: true } },
       },
     }),
   ]);
+  // Application counts for this page only (relation _count would group all applications).
+  const counts = await prisma.application.groupBy({
+    by: ["jobId"],
+    where: { jobId: { in: rows.map((j) => j.id) } },
+    _count: { _all: true },
+  });
+  const byJob = new Map(counts.map((c) => [c.jobId, c._count._all]));
+  const jobs = rows.map((j) => ({ ...j, _count: { applications: byJob.get(j.id) ?? 0 } }));
   return { total, jobs };
 }
 
 export async function getAdminJob(ctx: StaffContext, displayId: string) {
-  return prisma.job.findFirst({
+  const job = await prisma.job.findFirst({
     where: { AND: [{ displayId: displayId.toUpperCase() }, jobScopeWhere(ctx)] },
     include: {
-      caseFile: { include: { _count: { select: { folders: true } } } },
+      caseFile: true,
       skills: { include: { skill: true } },
       assignedRecruiter: { select: { id: true, firstName: true, lastName: true } },
       createdBy: { select: { firstName: true, lastName: true } },
-      _count: { select: { applications: true } },
     },
   });
+  if (!job) return null;
+  // Counted per job: a relation _count here groups the whole applications/folders tables.
+  const [applications, folders] = await Promise.all([
+    prisma.application.count({ where: { jobId: job.id } }),
+    job.caseFile ? prisma.caseFolder.count({ where: { caseFileId: job.caseFile.id } }) : 0,
+  ]);
+  return {
+    ...job,
+    caseFile: job.caseFile ? { ...job.caseFile, _count: { folders } } : null,
+    _count: { applications },
+  };
 }
 
 export async function listJobFormOptions() {
