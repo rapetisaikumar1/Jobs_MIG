@@ -32,6 +32,16 @@ Short runbook for staging and production. Configuration background is in the REA
 6. Smoke test: `/`, `/jobs`, staff login, candidate login, one apply with a PDF, and one admin
    status change.
 
+## Vercel: database connections and region
+
+- `DATABASE_URL` on Vercel **must** be the transaction pooler: port **6543** with `?pgbouncer=true&connection_limit=1`.
+  The session pooler (port 5432) holds one database connection per client; serverless instances each open their own,
+  so the project's session limit (15 on small plans) runs out and every page fails with
+  `FATAL: (EMAXCONNSESSION) max clients reached in session mode`. Keep the session pooler for `DIRECT_URL` (migrations) only.
+- Run functions in the database's region (`regions` in `vercel.json`; this project's database is in Seoul → `icn1`).
+  Every request makes several database round trips, so a cross-region deployment is several times slower.
+- Local or self-hosted servers on the session pooler share those 15 slots: stop them, or keep their `connection_limit` small.
+
 ## Self-hosted (non-Vercel) topology
 
 Each instance is `next start` behind a reverse proxy. `scripts/lb-proxy.mjs` is a minimal
