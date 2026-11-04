@@ -28,7 +28,7 @@ import type { StaffContext } from "@/modules/access-control/context";
 import { resolvePermissions, SYSTEM_ROLES } from "@/modules/access-control/permissions";
 import { assertJobAccess } from "@/modules/access-control/scope";
 import { syncRolesAndPermissions } from "@/modules/access-control/sync";
-import { deleteRole, saveRole } from "@/modules/access-control/admin-service";
+import { deleteRole, saveRole, setStaffUserPassword, updateStaffUser } from "@/modules/access-control/admin-service";
 import { addCandidateToJob, submitPortalApplication, updateApplicationStatus } from "@/modules/applications/service";
 import { createInternalCandidate, updateOwnProfile } from "@/modules/candidates/service";
 import { ensureCandidateAccount } from "@/modules/auth/provisioning";
@@ -268,6 +268,8 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
   });
 
   it("deletes custom roles only when unused, never built-in roles", async () => {
+    // Role management is a Super Admin capability (role.manage / role.delete).
+    const admin = ctxFor(await makeStaff("superadmin@test.dev", "Sam"), "SUPER_ADMIN");
     const builtIn = await prisma.role.findUniqueOrThrow({ where: { key: "RECRUITER" } });
     await expect(deleteRole(admin, builtIn.id)).rejects.toThrow("Built-in roles cannot be deleted");
 
@@ -321,5 +323,33 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     await ensureCandidateAccount(sam);
     expect((await prisma.candidateProfile.findUniqueOrThrow({ where: { email: "sam.lee@gmail.com" } })).userId).toBe(sam.id);
     expect(await prisma.candidateProfile.count({ where: { email: "sam.lee@gmail.com" } })).toBe(1);
+  });
+  it("non-Super-Admins can only hand out permissions they hold themselves", async () => {
+    // A custom "people admin" role: manages users and roles, but cannot see candidates' documents.
+    const manager = await makeStaff("people.admin@test.dev", "Pat");
+    const peopleRole = await prisma.role.create({ data: { name: "People admin", permissions: { create: (await prisma.permission.findMany({ where: { code: { in: ["user.manage", "role.manage", "candidate.view"] } } })).map((p) => ({ permissionId: p.id })) } } });
+    await prisma.userRole.create({ data: { userId: manager.id, roleId: peopleRole.id } });
+    const permissions = resolvePermissions([["user.manage", "role.manage", "candidate.view"]]);
+    const ctx: StaffContext = { user: { id: manager.id, email: manager.email, firstName: manager.firstName, lastName: manager.lastName }, permissions, roleKeys: [], roleNames: ["People admin"], isSuperAdmin: false, can: (p) => permissions.has(p) };
+
+    // Cannot create or widen a role beyond its own permissions…
+    await expect(saveRole(ctx, null, { name: "Escalate", permissions: ["document.view"] })).rejects.toThrow("permissions you have yourself");
+    await expect(saveRole(ctx, peopleRole.id, { name: "People admin", permissions: ["user.manage", "role.manage", "candidate.view", "job.view_all"] })).rejects.toThrow("permissions you have yourself");
+    // …but can create a role within them.
+    const viewer = await saveRole(ctx, null, { name: "Candidate viewer", permissions: ["candidate.view"] });
+    expect(viewer.name).toBe("Candidate viewer");
+
+    // Cannot give itself (or anyone) the built-in Admin role, nor change its own roles.
+    const adminRole = await prisma.role.findUniqueOrThrow({ where: { key: "ADMIN" } });
+    await expect(updateStaffUser(ctx, { userId: manager.id, firstName: "Pat", lastName: "Lee", roleIds: [peopleRole.id, adminRole.id] })).rejects.toThrow(/own roles|permissions you have/);
+    await expect(updateStaffUser(ctx, { userId: recruiterUser.id, firstName: "Rita", lastName: "Staff", roleIds: [adminRole.id] })).rejects.toThrow();
+    // Cannot take over a more privileged account (the recruiter can view documents; this role can't).
+    const recruiterRole = await prisma.role.findUniqueOrThrow({ where: { key: "RECRUITER" } });
+    await prisma.userRole.create({ data: { userId: recruiterUser.id, roleId: recruiterRole.id } });
+    await expect(setStaffUserPassword(ctx, recruiterUser.id, "Takeover12345")).rejects.toThrow("more permissions than your own");
+    await prisma.userRole.delete({ where: { userId_roleId: { userId: recruiterUser.id, roleId: recruiterRole.id } } });
+    // Super Admin is unaffected.
+    const sa = ctxFor(await makeStaff("sa2@test.dev", "Sue"), "SUPER_ADMIN");
+    await expect(saveRole(sa, viewer.id, { name: "Candidate viewer", permissions: ["candidate.view", "document.view"] })).resolves.toBeTruthy();
   });
 });

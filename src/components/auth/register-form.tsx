@@ -94,7 +94,7 @@ export function RegisterForm() {
           </label>
           {e.acceptPrivacy && <p className="mt-1 text-xs text-destructive">{e.acceptPrivacy.message}</p>}
         </div>
-        <Button type="submit" className="w-full" disabled={formState.isSubmitting}>
+        <Button type="submit" className="w-full" loading={formState.isSubmitting} disabled={formState.isSubmitting}>
           {formState.isSubmitting ? "Creating account…" : "Create account"}
         </Button>
       </form>

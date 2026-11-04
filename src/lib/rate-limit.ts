@@ -74,6 +74,27 @@ export async function checkRateLimit(name: keyof typeof RATE_LIMITS, subject?: s
   }
 }
 
+/**
+ * Atomically counts an attempt against the subject (e.g. an email) before the work is done, so
+ * concurrent requests can't all slip past a read-only check. Returns a function that gives the
+ * attempt back (used when a sign-in succeeds, so only failures count, as before).
+ */
+export async function reserveSubjectAttempt(name: keyof typeof RATE_LIMITS, subject: string): Promise<() => Promise<void>> {
+  const rule: Rule = RATE_LIMITS[name];
+  const key = `${name}:sub:${subject.toLowerCase()}`;
+  const { allowed } = await hitRateLimit(key, rule);
+  if (!allowed) throw new AppError(TOO_MANY);
+  return async () => {
+    await prisma.$executeRaw`UPDATE rate_limits SET count = GREATEST(count - 1, 0) WHERE key = ${key}`;
+  };
+}
+
+/** Counts one attempt against the caller's IP only. */
+export async function recordIpHit(name: keyof typeof RATE_LIMITS): Promise<void> {
+  const { rule, keys } = await ruleKeys(name);
+  for (const { key, limit } of keys) await hitRateLimit(key, { ...rule, limit });
+}
+
 /** Counts one attempt (e.g. a failed sign-in) against the rule. */
 export async function recordRateLimitHit(name: keyof typeof RATE_LIMITS, subject?: string): Promise<void> {
   const { rule, keys } = await ruleKeys(name, subject);

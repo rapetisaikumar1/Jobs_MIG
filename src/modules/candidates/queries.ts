@@ -44,13 +44,14 @@ export function quickCandidateWhere(q?: string): Prisma.CandidateProfileWhereInp
 }
 
 /** Candidates added by staff (internal recruitment, referrals, other) — not job portal sign-ups. */
-export const INTERNAL_CANDIDATES: Prisma.CandidateProfileWhereInput = { source: { not: "JOB_PORTAL" } };
+// Every source except the job portal (same rows as "not JOB_PORTAL", but index-friendly).
+export const INTERNAL_CANDIDATES: Prisma.CandidateProfileWhereInput = { source: { in: ["INTERNAL_RECRUITMENT", "REFERRAL", "OTHER"] } };
 
 export async function listInternalCandidates(q: string | undefined, page: number) {
   const where: Prisma.CandidateProfileWhereInput = { AND: [INTERNAL_CANDIDATES, quickCandidateWhere(q)] };
   const [total, candidates] = await Promise.all([
     prisma.candidateProfile.count({ where }),
-    prisma.candidateProfile.findMany({ where, orderBy: { updatedAt: "desc" }, ...pageArgs(page), select: candidateListSelect }),
+    prisma.candidateProfile.findMany({ where, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], ...pageArgs(page), select: candidateListSelect }),
   ]);
   return { total, candidates };
 }

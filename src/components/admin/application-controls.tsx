@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import type { ApplicationStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
@@ -15,7 +14,6 @@ import {
 } from "@/modules/applications/actions";
 
 function useResult() {
-  const router = useRouter();
   const [message, setMessage] = React.useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = React.useTransition();
   const run = (fn: () => Promise<{ ok: boolean; error?: string; message?: string }>, onOk?: () => void) =>
@@ -24,7 +22,7 @@ function useResult() {
       setMessage(result.ok ? { ok: true, text: result.message ?? "Saved." } : { ok: false, text: result.error ?? "Failed." });
       if (result.ok) {
         onOk?.();
-        router.refresh();
+        // The action calls revalidatePath, so its response already re-renders this page.
       }
     });
   return { message, pending, run };
@@ -51,7 +49,7 @@ export function StatusUpdateForm({ applicationId, status }: { applicationId: str
       <Field id="statusNote" label="Reason / note" hint="Optional · kept in the status history">
         <Input id="statusNote" value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} />
       </Field>
-      <Button type="submit" disabled={pending || next === status} className="w-full">Update status</Button>
+      <Button type="submit" loading={pending} disabled={pending || next === status} className="w-full">Update status</Button>
     </form>
   );
 }
@@ -67,7 +65,7 @@ export function AssignRecruiterForm({ applicationId, current, staff }: { applica
             <option value="">Unassigned</option>
             {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
-          <Button type="submit" variant="outline" disabled={pending || value === current}>Save</Button>
+          <Button type="submit" variant="outline" loading={pending} disabled={pending || value === current}>Save</Button>
         </div>
       </Field>
       {message && <p className={message.ok ? "text-xs text-success" : "text-xs text-destructive"}>{message.text}</p>}
@@ -83,7 +81,7 @@ export function NoteForm({ applicationId }: { applicationId: string }) {
       <Textarea rows={3} value={body} maxLength={5000} onChange={(e) => setBody(e.target.value)} placeholder="Add an internal note (never visible to the candidate)" aria-label="Internal note" />
       <div className="flex items-center justify-between gap-2">
         {message ? <span className={message.ok ? "text-xs text-success" : "text-xs text-destructive"}>{message.text}</span> : <span />}
-        <Button type="submit" size="sm" disabled={pending || !body.trim()}>Add note</Button>
+        <Button type="submit" size="sm" loading={pending} disabled={pending || !body.trim()}>Add note</Button>
       </div>
     </form>
   );

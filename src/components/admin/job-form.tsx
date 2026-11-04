@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox, Input, Select, Textarea } from "@/components/ui/input";
 import { Field, FormSection } from "@/components/forms/field";
 import { FormAlert } from "@/components/forms/form-alert";
-import { applyServerErrors } from "@/components/forms/form-utils";
+import { applyServerErrors, errorMessage } from "@/components/forms/form-utils";
 import { RegionSelect } from "@/components/forms/region-select";
 import { TagInput } from "@/components/forms/tag-input";
 import {
@@ -72,12 +72,12 @@ export function JobForm({
         <Field id="responsibilities" label="Responsibilities" error={e.responsibilities?.message} hint="One per line" className="sm:col-span-2">
           <Textarea id="responsibilities" rows={6} {...register("responsibilities")} />
         </Field>
-        <Field id="requiredSkills" label="Required skills" required error={e.requiredSkills?.message} className="sm:col-span-2">
+        <Field id="requiredSkills" label="Required skills" required error={errorMessage(e as Record<string, unknown>, "requiredSkills")} className="sm:col-span-2">
           <Controller control={control} name="requiredSkills" render={({ field }) => (
             <TagInput id="requiredSkills" value={field.value ?? []} onChange={field.onChange} suggestions={skillSuggestions} invalid={!!e.requiredSkills} />
           )} />
         </Field>
-        <Field id="preferredSkills" label="Preferred skills" error={e.preferredSkills?.message} className="sm:col-span-2">
+        <Field id="preferredSkills" label="Preferred skills" error={errorMessage(e as Record<string, unknown>, "preferredSkills")} className="sm:col-span-2">
           <Controller control={control} name="preferredSkills" render={({ field }) => (
             <TagInput id="preferredSkills" value={field.value ?? []} onChange={field.onChange} suggestions={skillSuggestions} />
           )} />
@@ -161,7 +161,7 @@ export function JobForm({
 
       <div className="flex justify-end gap-2 border-t pt-6">
         <Button variant="outline" onClick={() => router.back()}>Cancel</Button>
-        <Button type="submit" disabled={formState.isSubmitting || navigating}>
+        <Button type="submit" loading={formState.isSubmitting || navigating} disabled={formState.isSubmitting || navigating}>
           {formState.isSubmitting || navigating ? "Saving…" : jobId ? "Save changes" : "Create job"}
         </Button>
       </div>

@@ -40,7 +40,9 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
       <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-6 px-4 pb-20 pt-8 lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <MobileFilterToggle>
-            <JobFilterSidebar filters={filters} skills={skills} />
+            {/* Keyed on the active filters: the radios/skills box are uncontrolled, so this re-mounts them
+                when the URL's filters change (e.g. "Clear all") instead of keeping stale selections. */}
+            <JobFilterSidebar key={[filters.country, filters.workArrangement, filters.employmentType, skills].join("|")} filters={filters} skills={skills} />
           </MobileFilterToggle>
         </aside>
         <section className="min-w-0">

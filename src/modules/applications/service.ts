@@ -1,7 +1,8 @@
 import "server-only";
 import { Prisma, type ApplicationStatus, type Document } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { AppError } from "@/lib/action-result";
+import { AppError, ForbiddenError } from "@/lib/action-result";
+import { PERMISSIONS } from "@/modules/access-control/permissions";
 import { isDeadlinePassed } from "@/lib/format";
 import type { StaffContext } from "@/modules/access-control/context";
 import { assertApplicationAccess, assertJobAccess } from "@/modules/access-control/scope";
@@ -63,6 +64,13 @@ export async function submitPortalApplication(ctx: NonNullable<CandidateContext>
 
   try {
     return await prisma.$transaction(async (tx) => {
+      // Re-check under a share lock: changeJobStatus takes FOR UPDATE on the job, so a close or
+      // archive happening right now either finishes first (and we refuse) or waits for us.
+      const [current] = await tx.$queryRaw<{ status: string; application_deadline: Date | null }[]>`
+        SELECT status::text AS status, application_deadline FROM jobs WHERE id = ${job.id}::uuid FOR SHARE`;
+      if (!current || current.status !== "PUBLISHED" || isDeadlinePassed(current.application_deadline)) {
+        throw new AppError("This job is no longer accepting applications.");
+      }
       const application = await tx.application.create({
         data: {
           candidateId,
@@ -102,6 +110,15 @@ export async function submitPortalApplication(ctx: NonNullable<CandidateContext>
 /** Recruiter adds an existing (internal or portal) candidate to a job's case file. */
 export async function addCandidateToJob(ctx: StaffContext, input: AddCandidateToJobInput) {
   await assertJobAccess(ctx, input.jobId);
+  // Assigning someone other than yourself is a recruiter assignment: same permission and the same
+  // "active staff" rule as assignApplicationRecruiter. (The form defaults to the person adding.)
+  if (input.assignedRecruiterId) {
+    if (input.assignedRecruiterId !== ctx.user.id && !ctx.can(PERMISSIONS.APPLICATION_ASSIGN)) {
+      throw new ForbiddenError("You don't have permission to assign other recruiters.");
+    }
+    const recruiter = await prisma.user.findFirst({ where: { id: input.assignedRecruiterId, type: "STAFF", isActive: true }, select: { id: true } });
+    if (!recruiter) throw new AppError("Select an active staff member.");
+  }
   const job = await prisma.job.findUnique({ where: { id: input.jobId }, include: { caseFile: true } });
   if (!job || !job.caseFile) throw new AppError("Job not found.");
   if (job.status === "CLOSED" || job.status === "ARCHIVED") {

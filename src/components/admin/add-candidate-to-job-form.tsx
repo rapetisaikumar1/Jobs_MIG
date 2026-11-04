@@ -130,7 +130,7 @@ export function AddCandidateToJobForm({
         <Textarea id="note" rows={2} {...register("note")} />
       </Field>
       <div className="flex justify-end">
-        <Button type="submit" disabled={formState.isSubmitting || navigating}>{formState.isSubmitting || navigating ? "Adding…" : "Add to job"}</Button>
+        <Button type="submit" loading={formState.isSubmitting || navigating} disabled={formState.isSubmitting || navigating}>{formState.isSubmitting || navigating ? "Adding…" : "Add to job"}</Button>
       </div>
     </form>
   );

@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { invalidateCache } from "@/lib/ttl-cache";
+import { PUBLIC_JOBS_CACHE } from "@/modules/jobs/queries";
 import { z } from "zod";
 import { runAction } from "@/lib/action";
 import { ok, validationFailure, type ActionResult } from "@/lib/action-result";
@@ -16,6 +18,7 @@ export async function createJobAction(values: JobFormValues): Promise<ActionResu
     const parsed = jobSchema.safeParse(values);
     if (!parsed.success) return validationFailure(parsed.error);
     const job = await createJob(ctx, parsed.data);
+    invalidateCache(PUBLIC_JOBS_CACHE);
     revalidatePath("/admin", "layout");
     return ok({ displayId: job.displayId }, `Job ${job.displayId} created with case file.`);
   });
@@ -28,6 +31,7 @@ export async function updateJobAction(jobId: string, values: JobFormValues): Pro
     const parsed = jobSchema.safeParse(values);
     if (!parsed.success) return validationFailure(parsed.error);
     const job = await updateJob(ctx, id, parsed.data);
+    invalidateCache(PUBLIC_JOBS_CACHE);
     revalidatePath("/", "layout");
     return ok({ displayId: job.displayId }, "Job updated.");
   });
@@ -44,6 +48,7 @@ export async function changeJobStatusAction(values: z.input<typeof statusSchema>
     const parsed = statusSchema.safeParse(values);
     if (!parsed.success) return validationFailure(parsed.error);
     await changeJobStatus(ctx, parsed.data.jobId, parsed.data.action);
+    invalidateCache(PUBLIC_JOBS_CACHE);
     revalidatePath("/", "layout");
     return ok(undefined, "Job status updated.");
   });

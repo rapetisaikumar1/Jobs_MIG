@@ -26,7 +26,7 @@ function env(name: string): string | undefined {
 
 function need(name: string): string {
   const value = env(name);
-  if (!value) throw new Error(`Missing ${name}. Set it in .env or .env.supabase.local.`);
+  if (!value) throw new Error(`Missing ${name}. Set it in .env.`);
   return value;
 }
 
@@ -55,7 +55,9 @@ function desiredConfig(): Record<string, string | number | boolean> {
     .split(",")
     .map((s) => s.trim().replace(/\/$/, ""))
     .filter(Boolean);
-  const redirects = [site, ...extraOrigins].flatMap((origin) => [`${origin}/auth/confirm`, `${origin}/auth/callback`]);
+  // "**" lets the ?next=… destination through: Supabase matches the whole URL, query string included,
+  // and silently falls back to the site URL when a redirect doesn't match.
+  const redirects = [site, ...extraOrigins].flatMap((origin) => [`${origin}/auth/confirm**`, `${origin}/auth/callback**`]);
 
   const config: Record<string, string | number | boolean> = {
     site_url: site,
@@ -65,6 +67,9 @@ function desiredConfig(): Record<string, string | number | boolean> {
     mailer_otp_length: 6,
     mailer_otp_exp: 3600,
     password_min_length: 10,
+    // Auth emails per hour for the whole project. Supabase's default (2) is meant for its built-in
+    // test sender; with custom SMTP it must be raised or sign-up codes silently stop after 2/hour.
+    rate_limit_email_sent: Number(env("AUTH_EMAILS_PER_HOUR") ?? 60),
     mailer_subjects_confirmation: "Your MaverickInnogarage verification code",
     mailer_templates_confirmation_content: CONFIRM_SIGNUP_HTML,
     mailer_subjects_recovery: "Reset your MaverickInnogarage password",

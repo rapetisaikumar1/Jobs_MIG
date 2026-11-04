@@ -22,13 +22,14 @@ export async function listOwnApplications(candidateId: string) {
 }
 
 export async function getOwnApplication(candidateId: string, displayId: string) {
-  return prisma.application.findFirst({
+  const app = await prisma.application.findFirst({
     where: { candidateId, displayId },
     select: {
       id: true,
       displayId: true,
       status: true,
       appliedAt: true,
+      source: true,
       relevantExperienceYears: true,
       relevantExperienceSummary: true,
       availability: true,
@@ -53,6 +54,12 @@ export async function getOwnApplication(candidateId: string, displayId: string) 
       },
     },
   });
+  if (!app) return null;
+  const { source, ...rest } = app;
+  if (source === "JOB_PORTAL") return rest;
+  // Applications a recruiter created: these answers were written by staff (e.g. "Why this
+  // candidate fits"), not by the candidate, so they are not shown in the candidate portal.
+  return { ...rest, relevantExperienceYears: null, relevantExperienceSummary: null, availability: null, workAuthorizationResponse: null, additionalComments: null };
 }
 
 // ----- Admin portal -----
@@ -75,9 +82,15 @@ const KEYWORD_ID_LIMIT = 5_000;
  */
 async function applicationKeywordWhere(q: string): Promise<Prisma.ApplicationWhereInput> {
   const contains = { contains: q, mode: "insensitive" } as const;
+  // "Jane Smith": every word must match the first or last name (as in the Candidates list).
+  const words = q.split(/\s+/).filter(Boolean);
+  const fullName: Prisma.CandidateProfileWhereInput[] =
+    words.length > 1
+      ? [{ AND: words.map((w) => ({ OR: [{ firstName: { contains: w, mode: "insensitive" as const } }, { lastName: { contains: w, mode: "insensitive" as const } }] })) }]
+      : [];
   const [candidates, jobs] = await Promise.all([
     prisma.candidateProfile.findMany({
-      where: { OR: [{ firstName: contains }, { lastName: contains }, { email: contains }] },
+      where: { OR: [{ firstName: contains }, { lastName: contains }, { email: contains }, ...fullName] },
       select: { id: true },
       take: KEYWORD_ID_LIMIT + 1,
     }),
@@ -90,6 +103,7 @@ async function applicationKeywordWhere(q: string): Promise<Prisma.ApplicationWhe
         { candidate: { firstName: contains } },
         { candidate: { lastName: contains } },
         { candidate: { email: contains } },
+        ...fullName.map((f) => ({ candidate: f })),
         { job: { title: contains } },
       ],
     };
@@ -118,7 +132,7 @@ export async function listApplications(ctx: StaffContext, filters: ApplicationLi
     prisma.application.count({ where }),
     prisma.application.findMany({
       where,
-      orderBy: { appliedAt: "desc" },
+      orderBy: [{ appliedAt: "desc" }, { id: "desc" }],
       ...pageArgs(page),
       select: {
         id: true,

@@ -19,22 +19,30 @@ export function LiveJobSearch({ q, location }: { q?: string; location?: string }
   const [pending, startTransition] = React.useTransition();
   const [values, setValues] = React.useState({ q: q ?? "", location: location ?? "" });
   const timer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Values this component last wrote to the URL. When the URL catches up with one of our own
+  // (possibly older) updates, the user may already have typed more, so we must not overwrite
+  // the box with it. Only URL changes made elsewhere ("Clear all", back button) are copied in.
+  const sent = React.useRef({ q: q ?? "", location: location ?? "" });
+  const typing = React.useRef(false);
 
   React.useEffect(() => () => clearTimeout(timer.current), []);
 
-  // Keep the inputs in sync when the URL changes elsewhere (e.g. "Clear all", back button).
   React.useEffect(() => {
-    setValues((v) => ({
-      q: (q ?? "") === v.q.trim() ? v.q : (q ?? ""),
-      location: (location ?? "") === v.location.trim() ? v.location : (location ?? ""),
-    }));
+    const incoming = { q: q ?? "", location: location ?? "" };
+    const ours = incoming.q === sent.current.q && incoming.location === sent.current.location;
+    if (ours || typing.current) return;
+    sent.current = incoming;
+    setValues(incoming);
   }, [q, location]);
 
   function update(field: "q" | "location", value: string) {
     const next = { ...values, [field]: value };
     setValues(next);
+    typing.current = true;
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
+      typing.current = false;
+      sent.current = { q: next.q.trim(), location: next.location.trim() };
       const params = new URLSearchParams(searchParams.toString());
       for (const key of ["q", "location"] as const) {
         const v = next[key].trim();

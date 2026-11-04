@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -20,6 +20,8 @@ export const metadata: Metadata = { title: "Add candidate to a job" };
 /** Candidate-first entry point: choose a job, then confirm on the job's add-candidate page. */
 export default async function CandidateAddToJobPage({ params, searchParams }: { params: Promise<{ candidateId: string }>; searchParams: Promise<SearchParams> }) {
   const ctx = await requireStaff(PERMISSIONS.APPLICATION_CREATE);
+  // These pages list and show candidates' personal details, so viewing candidates is required too.
+  if (!ctx.can(PERMISSIONS.CANDIDATE_VIEW)) redirect("/admin/forbidden");
   const candidate = await prisma.candidateProfile.findUnique({
     where: { displayId: (await params).candidateId.toUpperCase() },
     select: { id: true, displayId: true, firstName: true, lastName: true, applications: { select: { jobId: true } } },

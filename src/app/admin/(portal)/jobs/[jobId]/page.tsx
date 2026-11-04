@@ -28,6 +28,7 @@ import { param, type SearchParams } from "@/lib/pagination";
 import { getViewerTimeZone } from "@/lib/request";
 import { requireStaff } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
+import { jobScopeWhere } from "@/modules/access-control/scope";
 import { getAdminJob } from "@/modules/jobs/queries";
 import { allowedJobActions } from "@/modules/jobs/service";
 
@@ -35,14 +36,15 @@ export const metadata: Metadata = { title: "Job" };
 
 export default async function AdminJobPage({ params, searchParams }: { params: Promise<{ jobId: string }>; searchParams: Promise<SearchParams> }) {
   const ctx = await requireStaff();
-  const job = await getAdminJob(ctx, (await params).jobId);
-  if (!job) notFound();
-  const notice = param(await searchParams, "notice");
-  const tz = await getViewerTimeZone();
-
-  const applications = ctx.can(PERMISSIONS.APPLICATION_VIEW)
-    ? await prisma.application.findMany({
-        where: { jobId: job.id },
+  const displayId = (await params).jobId.toUpperCase();
+  // The job's applications are fetched alongside the job itself. Same rows as filtering by the
+  // job's id after the scoped lookup: the job is matched by display ID within the staff scope.
+  const [job, tz, applications] = await Promise.all([
+    getAdminJob(ctx, displayId),
+    getViewerTimeZone(),
+    ctx.can(PERMISSIONS.APPLICATION_VIEW)
+      ? prisma.application.findMany({
+        where: { job: { AND: [{ displayId }, jobScopeWhere(ctx)] } },
         orderBy: { appliedAt: "desc" },
         take: 100,
         select: {
@@ -51,7 +53,10 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
           assignedRecruiter: { select: { firstName: true, lastName: true } },
         },
       })
-    : [];
+      : Promise.resolve([]),
+  ]);
+  if (!job) notFound();
+  const notice = param(await searchParams, "notice");
 
   const actions = allowedJobActions(job.status).filter((a) =>
     a === "publish" || a === "reopen" ? ctx.can(PERMISSIONS.JOB_PUBLISH) : ctx.can(PERMISSIONS.JOB_CLOSE),
@@ -154,7 +159,7 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
                 { label: "Posted (first published)", value: job.publishedAt ? formatDateTime(job.publishedAt, tz) : "Not yet published" },
                 ...(job.closedAt ? [{ label: "Closed", value: formatDateTime(job.closedAt, tz) }] : []),
               ]} />
-              {job.status === "PUBLISHED" && <Link href={`/jobs/${job.displayId}`} target="_blank" className="mt-4 inline-block text-sm underline">View public posting ↗</Link>}
+              {(job.status === "PUBLISHED" || job.status === "CLOSED") && <Link href={`/jobs/${job.displayId}`} target="_blank" className="mt-4 inline-block text-sm underline">View public posting ↗</Link>}
             </CardContent>
           </Card>
         </div>

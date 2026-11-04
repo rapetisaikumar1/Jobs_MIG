@@ -5,7 +5,7 @@ import { runAction } from "@/lib/action";
 import { fail, ok, validationFailure, type ActionResult } from "@/lib/action-result";
 import { serverEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { checkRateLimit, enforceRateLimit, recordRateLimitHit } from "@/lib/rate-limit";
+import { checkRateLimit, enforceRateLimit, recordIpHit, reserveSubjectAttempt } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ensureCandidateAccount, type CandidateSignupMetadata } from "@/modules/auth/provisioning";
 import { safeNextPath } from "@/modules/auth/redirects";
@@ -72,7 +72,7 @@ export async function verifyEmailCodeAction(values: z.input<typeof verifyEmailCo
     if (appUser?.type === "STAFF") return ok("/admin/jobs");
     const account = await ensureCandidateAccount(data.user);
     if (!account || !account.isActive) {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: "local" });
       return fail("This account cannot sign in to the job portal. Please contact us.");
     }
     return ok("/candidate/profile?welcome=1");
@@ -90,11 +90,12 @@ export async function loginAction(
     const parsed = loginSchema.safeParse(values);
     if (!parsed.success) return validationFailure(parsed.error);
     await checkRateLimit("login", parsed.data.email);
+    const refundAttempt = await reserveSubjectAttempt("login", parsed.data.email);
 
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
     if (error || !data.user) {
-      await recordRateLimitHit("login", parsed.data.email);
+      await recordIpHit("login");
       if (error?.code === "user_banned") {
         return fail("This account has been deactivated. Contact an administrator.");
       }
@@ -107,11 +108,12 @@ export async function loginAction(
       }
       return fail("Incorrect email or password.");
     }
+    await refundAttempt();
 
     const appUser = await prisma.user.findUnique({ where: { id: data.user.id } });
     if (portal === "staff") {
       if (!appUser || appUser.type !== "STAFF" || !appUser.isActive) {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         return fail("This sign-in is for MaverickInnogarage staff only.");
       }
       return ok("/admin/jobs");
@@ -120,7 +122,7 @@ export async function loginAction(
     if (appUser?.type === "STAFF") return ok("/admin/jobs");
     const account = await ensureCandidateAccount(data.user);
     if (!account || !account.isActive) {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: "local" });
       return fail("This account cannot sign in to the job portal. Please contact us.");
     }
     return ok("/candidate/dashboard");
@@ -135,7 +137,7 @@ export async function loginAction(
 
 export async function logoutAction(portal: "candidate" | "staff" = "candidate") {
   const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
   redirect(portal === "staff" ? "/admin/login" : "/");
 }
 

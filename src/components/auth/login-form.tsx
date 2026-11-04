@@ -80,7 +80,7 @@ export function LoginForm({ portal, next }: { portal: "candidate" | "staff"; nex
           </button>
         )}
       </div>
-      <Button type="submit" className="w-full" disabled={formState.isSubmitting}>
+      <Button type="submit" className="w-full" loading={formState.isSubmitting} disabled={formState.isSubmitting}>
         {formState.isSubmitting ? "Signing in…" : "Sign in"}
       </Button>
     </form>

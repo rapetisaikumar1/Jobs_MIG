@@ -93,7 +93,7 @@ export function VerifyCodeForm({
           {...register("code")}
         />
       </Field>
-      <Button type="submit" className="w-full" disabled={formState.isSubmitting}>
+      <Button type="submit" className="w-full" loading={formState.isSubmitting} disabled={formState.isSubmitting}>
         {formState.isSubmitting ? "Verifying…" : "Verify and continue"}
       </Button>
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">

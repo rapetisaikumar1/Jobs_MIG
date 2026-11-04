@@ -29,13 +29,13 @@ export async function GET(request: NextRequest) {
 
   const existing = await prisma.user.findUnique({ where: { id: authUser.id }, select: { type: true } });
   if (existing?.type === "STAFF") {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     return to("/login?error=staff");
   }
 
   const account = await ensureCandidateAccount(authUser);
   if (!account || !account.isActive) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     return to("/login?inactive=1");
   }
   // First Google sign-in: send them to complete the profile (phone, location, skills).

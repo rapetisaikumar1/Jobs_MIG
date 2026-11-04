@@ -104,7 +104,7 @@ export function CandidateProfileForm({
         applyServerErrors(result, setFieldError);
       } else {
         setSuccess(result.message ?? "Saved.");
-        router.refresh();
+        // The action calls revalidatePath, so its response already re-renders this page.
       }
       return;
     }
@@ -307,7 +307,7 @@ export function CandidateProfileForm({
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={formState.isSubmitting || navigating}>
+        <Button type="submit" loading={formState.isSubmitting || navigating} disabled={formState.isSubmitting || navigating}>
           {formState.isSubmitting || navigating ? "Saving…" : mode === "staff-create" ? "Create candidate" : "Save profile"}
         </Button>
       </div>

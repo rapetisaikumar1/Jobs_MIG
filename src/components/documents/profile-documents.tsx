@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 import type { DocumentType } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +36,6 @@ export function ProfileDocuments({
   /** Staff without "document.view" see file names only. */
   canOpen?: boolean;
 }) {
-  const router = useRouter();
   const [type, setType] = React.useState<DocumentType>("RESUME");
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
@@ -114,8 +112,8 @@ export function ProfileDocuments({
               });
               if (!result.ok) setError(result.error);
               else {
-                setSuccess(type === "RESUME" ? "Resume uploaded and set as your default." : "Document uploaded.");
-                router.refresh();
+                setSuccess(type === "RESUME" ? (candidateId ? "Resume uploaded and set as the default." : "Resume uploaded and set as your default.") : "Document uploaded.");
+                // The action calls revalidatePath, so its response already re-renders this page.
               }
             }}
           />

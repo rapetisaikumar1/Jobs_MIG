@@ -229,13 +229,13 @@ export function buildCandidateSearchWhere(
 export function searchOrderBy(sort: SearchSort): Prisma.CandidateProfileOrderByWithRelationInput[] {
   switch (sort) {
     case "newest":
-      return [{ createdAt: "desc" }];
+      return [{ createdAt: "desc" }, { id: "desc" }];
     case "experience":
-      return [{ totalExperienceYears: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }];
+      return [{ totalExperienceYears: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }, { id: "desc" }];
     case "name":
-      return [{ lastName: "asc" }, { firstName: "asc" }];
+      return [{ lastName: "asc" }, { firstName: "asc" }, { id: "asc" }];
     default:
-      return [{ updatedAt: "desc" }];
+      return [{ updatedAt: "desc" }, { id: "desc" }];
   }
 }
 
