@@ -88,6 +88,11 @@ npm run dev                   # http://localhost:3000 — staff sign-in at /admi
    - OAuth consent screen: app name, support email, the `email` and `profile` scopes, then publish the app.
 2. In Supabase, enable the Google provider and paste the client ID and client secret.
 
+**Show your own domain on Google's screens (recommended).** By default Google returns through Supabase, so its account picker and consent screen say "continue to <project>.supabase.co". To show your domain instead:
+1. In the same Google OAuth client, add `<site>/auth/google/callback` (and `http://localhost:3000/auth/google/callback` for local use) to **Authorized redirect URIs**.
+2. Set `GOOGLE_SIGNIN_ON_SITE=true`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the app's environment (Vercel too).
+3. Google Cloud → OAuth consent screen / Branding: app name, logo, support email, home page, privacy policy (`<site>/privacy`), authorized domain `maverickinnogarage.com`; publish the app and submit it for brand verification so Google shows the app name and logo.
+
 Google sign-in exists on the job portal only. A Google login whose email belongs to a staff account is refused on the job portal; staff keep using `/admin/login`. A first Google sign-in creates the candidate account (source "Job Portal") and opens the profile so the candidate can add their phone number and location. Supabase links a Google login to an existing candidate with the same verified email address.
 
 **Authentication → Policies (optional)**
