@@ -3,10 +3,12 @@ import { serverEnv } from "@/lib/env";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { safeNextPath } from "@/modules/auth/redirects";
+import { googleDirectConfig, startGoogleSignIn } from "@/modules/auth/google";
 
 /**
- * Starts "Continue with Google" for the job portal. Supabase issues the Google URL and
- * stores the PKCE verifier in a cookie; Google sends the user back to /auth/callback.
+ * Starts "Continue with Google" for the job portal. With GOOGLE_SIGNIN_ON_SITE enabled (see auth/google.ts),
+ * Google returns to this site (/auth/google/callback), so Google's screens name our domain.
+ * Otherwise Supabase issues the Google URL and Google returns via Supabase to /auth/callback.
  * A plain GET link (not a form post) so the CSP form-action rule never blocks the hop.
  */
 export async function GET(request: NextRequest) {
@@ -20,6 +22,9 @@ export async function GET(request: NextRequest) {
   } catch {
     return NextResponse.redirect(new URL("/login?error=google", origin));
   }
+
+  const direct = googleDirectConfig();
+  if (direct) return startGoogleSignIn(direct.clientId, next);
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
