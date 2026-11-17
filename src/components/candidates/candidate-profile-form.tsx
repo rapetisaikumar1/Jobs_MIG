@@ -1,11 +1,8 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Controller, useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, Select, Textarea } from "@/components/ui/input";
 import { Field, FormSection } from "@/components/forms/field";
@@ -13,23 +10,18 @@ import { FormAlert } from "@/components/forms/form-alert";
 import { applyServerErrors, errorMessage } from "@/components/forms/form-utils";
 import { RegionSelect } from "@/components/forms/region-select";
 import { TagInput } from "@/components/forms/tag-input";
-import { DocumentUploader, type UploadedFile } from "@/components/documents/document-uploader";
 import {
   COMPENSATION_TYPE_LABELS,
   COUNTRY_LABELS,
   CURRENCY_LABELS,
   EMPLOYMENT_TYPE_LABELS,
   QUALIFICATION_LABELS,
-  SOURCE_LABELS,
   WORK_ARRANGEMENT_LABELS,
   WORK_AUTH_STATUS_LABELS,
   toOptions,
 } from "@/config/options";
-import { candidateSelfProfileSchema, staffCandidateSchema, type StaffCandidateFormValues } from "@/modules/candidates/schemas";
-import { updateOwnProfileAction, createCandidateAction, updateCandidateAction } from "@/modules/candidates/actions";
-import type { DuplicateMatch } from "@/modules/candidates/service";
-
-type Mode = "self" | "staff-create" | "staff-edit";
+import { candidateSelfProfileSchema, type CandidateSelfProfileFormValues } from "@/modules/candidates/schemas";
+import { updateOwnProfileAction } from "@/modules/candidates/actions";
 
 function Options({ labels, empty }: { labels: Record<string, string>; empty?: string }) {
   return (
@@ -56,35 +48,22 @@ function CheckboxGroup({ labels, registration }: { labels: Record<string, string
   );
 }
 
+/** The signed-in candidate's own profile (candidate portal). */
 export function CandidateProfileForm({
-  mode,
   defaultValues,
-  candidateId,
-  candidateDisplayId,
-  emailLocked,
-  staffOptions = [],
   skillSuggestions = [],
 }: {
-  mode: Mode;
-  defaultValues: StaffCandidateFormValues;
-  candidateId?: string;
-  candidateDisplayId?: string;
-  /** Candidates with a portal login own their email address. */
-  emailLocked?: boolean;
-  staffOptions?: { id: string; name: string }[];
+  /** Only "self" remains (staff editing was removed); accepted so existing callers keep compiling. */
+  mode?: "self";
+  /** Extra keys (e.g. email) are ignored: the schema strips them and email is managed by the account. */
+  defaultValues: CandidateSelfProfileFormValues & { email?: string };
   skillSuggestions?: string[];
 }) {
-  const router = useRouter();
-  // Keep the submit button busy until the destination page has loaded.
-  const [navigating, startNavigation] = React.useTransition();
-  const isStaff = mode !== "self";
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
-  const [duplicates, setDuplicates] = React.useState<DuplicateMatch[] | null>(null);
-  const [resume, setResume] = React.useState<UploadedFile | null>(null);
 
-  const form = useForm<StaffCandidateFormValues>({
-    resolver: zodResolver((isStaff ? staffCandidateSchema : candidateSelfProfileSchema) as typeof staffCandidateSchema),
+  const form = useForm<CandidateSelfProfileFormValues>({
+    resolver: zodResolver(candidateSelfProfileSchema),
     defaultValues,
   });
   const { register, control, watch, handleSubmit, formState, setError: setFieldError, setValue } = form;
@@ -92,45 +71,20 @@ export function CandidateProfileForm({
   const err = (name: string) => errorMessage(errors, name);
   const country = watch("country");
 
-  React.useEffect(() => setValue("documentIds", resume ? [resume.documentId] : []), [resume, setValue]);
-
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
     setSuccess(null);
-    if (mode === "self") {
-      const result = await updateOwnProfileAction(values);
-      if (!result.ok) {
-        setError(result.error);
-        applyServerErrors(result, setFieldError);
-      } else {
-        setSuccess(result.message ?? "Saved.");
-        // The action calls revalidatePath, so its response already re-renders this page.
-      }
-      return;
-    }
-    if (mode === "staff-edit") {
-      const result = await updateCandidateAction(candidateId!, values);
-      if (!result.ok) {
-        setError(result.error);
-        applyServerErrors(result, setFieldError);
-      } else startNavigation(() => router.push(`/admin/candidates/${candidateDisplayId}?notice=updated`));
-      return;
-    }
-    const result = await createCandidateAction(values);
+    const result = await updateOwnProfileAction(values);
     if (!result.ok) {
       setError(result.error);
       applyServerErrors(result, setFieldError);
-    } else if (result.data.status === "needs-confirmation") {
-      setDuplicates(result.data.matches);
-      setError("Possible duplicate found. Review the matching records below and tick the confirmation box to create this candidate.");
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      const { displayId } = result.data;
-      startNavigation(() => router.push(`/admin/candidates/${displayId}?notice=created`));
+      setSuccess(result.message ?? "Saved.");
+      // The action calls revalidatePath, so its response already re-renders this page.
     }
   });
 
-  const tagField = (name: keyof StaffCandidateFormValues, label: string, hint?: string, suggestions?: string[]) => (
+  const tagField = (name: keyof CandidateSelfProfileFormValues, label: string, hint?: string, suggestions?: string[]) => (
     <Field id={name} label={label} hint={hint} error={err(name)} className="sm:col-span-2">
       <Controller
         control={control}
@@ -145,37 +99,14 @@ export function CandidateProfileForm({
   return (
     <form onSubmit={onSubmit} className="space-y-8" noValidate>
       <FormAlert error={error} success={success} />
-      {duplicates && (
-        <Alert variant="error">
-          <p className="font-medium">Possible duplicate candidates found</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            {duplicates.map((d) => (
-              <li key={d.id}>
-                <Link href={`/admin/candidates/${d.displayId}`} target="_blank" className="underline">
-                  {d.displayId} — {d.name}
-                </Link>{" "}
-                ({d.email}) · {d.reason}
-              </li>
-            ))}
-          </ul>
-          <label className="mt-3 flex items-center gap-2">
-            <Checkbox {...register("confirmNotDuplicate")} /> I have reviewed these records and this is a different person
-          </label>
-        </Alert>
-      )}
 
-      <FormSection title="Personal information" description={isStaff ? undefined : "Your email address is your sign-in and cannot be changed here."}>
+      <FormSection title="Personal information" description="Your email address is your sign-in and cannot be changed here.">
         <Field id="firstName" label="First name" required error={err("firstName")}>
           <Input id="firstName" {...register("firstName")} />
         </Field>
         <Field id="lastName" label="Last name" required error={err("lastName")}>
           <Input id="lastName" {...register("lastName")} />
         </Field>
-        {isStaff && (
-          <Field id="email" label="Email" required error={err("email")} hint={emailLocked ? "Managed by the candidate's portal account" : undefined}>
-            <Input id="email" type="email" readOnly={emailLocked} {...register("email")} />
-          </Field>
-        )}
         <Field id="phone" label="Phone" required error={err("phone")} hint="US/Canada: (416) 555-0100 · other: +44 20 7946 0958">
           <Input id="phone" type="tel" {...register("phone")} />
         </Field>
@@ -273,42 +204,9 @@ export function CandidateProfileForm({
         </Field>
       </FormSection>
 
-      {isStaff && (
-        <FormSection title="Recruitment (internal)" description="Never shown to the candidate.">
-          <Field id="source" label="Candidate source" required error={err("source")}>
-            <Select id="source" {...register("source")}>
-              <Options labels={SOURCE_LABELS} />
-            </Select>
-          </Field>
-          <Field id="profileOwnerId" label="Profile owner" error={err("profileOwnerId")}>
-            <Select id="profileOwnerId" {...register("profileOwnerId")}>
-              <option value="">{mode === "staff-create" ? "Me" : "Unassigned"}</option>
-              {staffOptions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field id="internalNotes" label="Internal notes" error={err("internalNotes")} className="sm:col-span-2">
-            <Textarea id="internalNotes" rows={4} {...register("internalNotes")} />
-          </Field>
-          {mode === "staff-create" && (
-            <Field id="resume" label="Resume" hint="PDF or DOCX, max 10 MB" className="sm:col-span-2">
-              <DocumentUploader id="resume" type="RESUME" value={resume} onChange={setResume} />
-            </Field>
-          )}
-        </FormSection>
-      )}
-
       <div className="flex justify-end gap-2">
-        {isStaff && (
-          <Button variant="outline" onClick={() => router.back()}>
-            Cancel
-          </Button>
-        )}
-        <Button type="submit" loading={formState.isSubmitting || navigating} disabled={formState.isSubmitting || navigating}>
-          {formState.isSubmitting || navigating ? "Saving…" : mode === "staff-create" ? "Create candidate" : "Save profile"}
+        <Button type="submit" loading={formState.isSubmitting} disabled={formState.isSubmitting}>
+          {formState.isSubmitting ? "Saving…" : "Save profile"}
         </Button>
       </div>
     </form>

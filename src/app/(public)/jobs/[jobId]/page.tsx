@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailList, TagList } from "@/components/shared/detail-list";
 import { JobPill, JobTile, publicCompensation } from "@/components/jobs/job-card";
 import { EMPLOYMENT_TYPE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
-import { formatLocation } from "@/config/locations";
+import { formatJobLocation, formatRegionNames, jobStates } from "@/config/locations";
 import { formatCalendarDate, formatExperienceRange, formatLongDate, isDeadlinePassed } from "@/lib/format";
 import { getViewerTimeZone } from "@/lib/request";
 import { getPublicJob } from "@/modules/jobs/queries";
@@ -21,7 +21,7 @@ type Props = { params: Promise<{ jobId: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const job = await getPublicJob((await params).jobId);
   return job
-    ? { title: `${job.title} — ${formatLocation(job.city, job.state, job.country)}`, description: job.description.slice(0, 160) }
+    ? { title: `${job.title} — ${formatJobLocation(job.city, jobStates(job), job.country)}`, description: job.description.slice(0, 160) }
     : { title: "Job not found" };
 }
 
@@ -37,6 +37,8 @@ export default async function JobDetailPage({ params }: Props) {
   const required = job.skills.filter((s) => s.type === "REQUIRED").map((s) => s.skill.name);
   const preferred = job.skills.filter((s) => s.type === "PREFERRED").map((s) => s.skill.name);
   const applyHref = `/jobs/${job.displayId}/apply`;
+  const states = jobStates(job);
+  const location = formatJobLocation(job.city, states, job.country);
 
   const applyBlock = alreadyApplied ? (
     <span className={buttonVariants({ variant: "secondary", className: "w-full pointer-events-none" })} aria-disabled>
@@ -71,11 +73,10 @@ export default async function JobDetailPage({ params }: Props) {
               <div className="min-w-0">
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{job.title}</h1>
                 <p className="mt-1.5 text-muted-foreground">
-                  {formatLocation(job.city, job.state, job.country)}
+                  {location}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {acceptingApplications ? <Badge tone="success" dot>Open</Badge> : <Badge tone="neutral" dot>Closed</Badge>}
-                  {acceptingApplications && job.isFeatured && <Badge tone="dark">Featured</Badge>}
                   {alreadyApplied && <Badge tone="info" dot>Already applied</Badge>}
                   <JobPill>{WORK_ARRANGEMENT_LABELS[job.workArrangement]}</JobPill>
                   <JobPill>{EMPLOYMENT_TYPE_LABELS[job.employmentType]}</JobPill>
@@ -144,7 +145,8 @@ export default async function JobDetailPage({ params }: Props) {
                 columns={1}
                 items={[
                   { label: "Job ID", value: job.displayId },
-                  { label: "Location", value: formatLocation(job.city, job.state, job.country) },
+                  { label: "Location", value: location },
+                  ...(states.length > 1 ? [{ label: job.country === "CA" ? "Provinces" : "States", value: formatRegionNames(job.country, states) }] : []),
                   { label: "Work arrangement", value: WORK_ARRANGEMENT_LABELS[job.workArrangement] },
                   { label: "Employment type", value: EMPLOYMENT_TYPE_LABELS[job.employmentType] },
                   { label: "Experience", value: formatExperienceRange(job.minExperience, job.maxExperience) },
@@ -154,6 +156,15 @@ export default async function JobDetailPage({ params }: Props) {
                 ]}
               />
               {applyBlock}
+              {!authUser && acceptingApplications && (
+                <p className="text-center text-sm text-muted-foreground">
+                  New here?{" "}
+                  <Link href={`/register?next=${encodeURIComponent(applyHref)}`} className="font-medium text-foreground underline">
+                    Create an account
+                  </Link>{" "}
+                  to apply.
+                </p>
+              )}
               {alreadyApplied && (
                 <Link href="/candidate/applications" className="block text-center text-sm underline">View my applications</Link>
               )}

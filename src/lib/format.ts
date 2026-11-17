@@ -193,3 +193,30 @@ export function cleanList(values: readonly string[] | null | undefined): string[
   }
   return result;
 }
+
+const RELATIVE_TIME = new Intl.RelativeTimeFormat("en-US", { numeric: "always" });
+
+/**
+ * "just now", "5 minutes ago", "3 hours ago", "2 days ago", "2 weeks ago", "4 months ago",
+ * "1 year ago" (or "in 2 days" for future dates). Time-zone independent; pair it with an
+ * exact date (formatDateTime) in a title attribute.
+ */
+export function formatRelativeTime(date: Date | string | null | undefined, now: Date = new Date()): string {
+  if (!date) return "—";
+  const then = new Date(date).getTime();
+  if (Number.isNaN(then)) return "—";
+  const diffMs = then - now.getTime();
+  const sign = diffMs < 0 ? -1 : 1;
+  const seconds = Math.abs(diffMs) / 1000;
+  if (seconds < 45) return "just now";
+  const minutes = Math.max(1, Math.floor(seconds / 60));
+  if (minutes < 60) return RELATIVE_TIME.format(sign * minutes, "minute");
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return RELATIVE_TIME.format(sign * hours, "hour");
+  const days = Math.floor(hours / 24);
+  if (days < 7) return RELATIVE_TIME.format(sign * days, "day");
+  if (days < 30) return RELATIVE_TIME.format(sign * Math.floor(days / 7), "week");
+  const months = Math.floor(days / 30);
+  if (months < 12) return RELATIVE_TIME.format(sign * months, "month");
+  return RELATIVE_TIME.format(sign * Math.max(1, Math.floor(days / 365)), "year");
+}

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailList, TagList } from "@/components/shared/detail-list";
 import { ApplyForm } from "@/components/applications/apply-form";
 import { COUNTRY_LABELS, WORK_AUTH_STATUS_LABELS } from "@/config/options";
-import { formatLocation } from "@/config/locations";
+import { formatJobLocation, formatLocation, jobStates } from "@/config/locations";
 import { formatPhone, formatYears, fullName, isDeadlinePassed } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { requireCandidate } from "@/modules/auth/session";
@@ -39,7 +39,7 @@ export default async function ApplyPage({ params }: { params: Promise<{ jobId: s
       <Link href={`/jobs/${job.displayId}`} className="text-sm text-muted-foreground hover:text-foreground">← Back to job</Link>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight">Apply: {job.title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {job.displayId} · {formatLocation(job.city, job.state, job.country)}
+        {job.displayId} · {formatJobLocation(job.city, jobStates(job), job.country)}
       </p>
 
       <Card className="mt-6">

@@ -22,7 +22,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         : param(params, "error") === "google"
           ? "Google sign-in didn't complete. Please try again, or sign in with your email and password."
           : param(params, "error") === "staff"
-            ? "This is a MaverickInnogarage staff account. Please use the staff sign-in instead."
+            ? "This is a MaverickInnogarage staff account. Staff accounts can't sign in to the job portal; please use the admin portal sign-in."
             : null;
   const next = param(params, "next");
 
@@ -34,7 +34,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       footer={
         <>
           New to MaverickInnogarage?{" "}
-          <Link href="/register" className="font-medium text-foreground underline">
+          <Link href={next ? `/register?next=${encodeURIComponent(next)}` : "/register"} className="font-medium text-foreground underline">
             Create an account
           </Link>
         </>

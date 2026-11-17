@@ -3,16 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Briefcase, Loader2, Search } from "lucide-react";
-import { Avatar } from "@/components/shared/avatar";
+import { Briefcase, Loader2, Search } from "lucide-react";
 
-type Result = { candidates: { displayId: string; name: string; detail: string }[]; jobs: { displayId: string; title: string; detail: string }[] };
-type Item = { href: string; key: string };
+type Result = { jobs: { displayId: string; title: string; detail: string }[] };
 
 const DELAY_MS = 200;
 
-/** Admin top-bar search: live candidate and job suggestions while typing; Enter opens Advanced search. */
-export function AdminGlobalSearch({ canSearchCandidates }: { canSearchCandidates: boolean }) {
+/** Admin top-bar search: live job suggestions while typing; Enter opens the filtered jobs list. */
+export function AdminGlobalSearch() {
   const router = useRouter();
   const [q, setQ] = React.useState("");
   const [data, setData] = React.useState<Result | null>(null);
@@ -56,11 +54,7 @@ export function AdminGlobalSearch({ canSearchCandidates }: { canSearchCandidates
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const items: Item[] = [
-    ...(data?.candidates ?? []).map((c) => ({ key: c.displayId, href: `/admin/candidates/${c.displayId}` })),
-    ...(data?.jobs ?? []).map((j) => ({ key: j.displayId, href: `/admin/jobs/${j.displayId}` })),
-  ];
-  const fullSearch = `/admin/search?${new URLSearchParams({ q: q.trim() })}`;
+  const items = (data?.jobs ?? []).map((j) => ({ href: `/admin/jobs/${j.displayId}` }));
   const showPanel = open && q.trim() !== "" && data !== null;
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -81,11 +75,10 @@ export function AdminGlobalSearch({ canSearchCandidates }: { canSearchCandidates
   }
 
   const row = (i: number) => `flex items-center gap-3 px-3 py-2 ${i === active ? "bg-muted" : "hover:bg-muted"}`;
-  let index = -1;
 
   return (
     <div ref={boxRef} className="relative w-full max-w-md">
-      <form action={canSearchCandidates ? "/admin/search" : "/admin/jobs"} onSubmit={() => setOpen(false)}>
+      <form action="/admin/jobs" onSubmit={() => setOpen(false)}>
         {loading ? (
           <Loader2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
         ) : (
@@ -97,8 +90,8 @@ export function AdminGlobalSearch({ canSearchCandidates }: { canSearchCandidates
           onChange={(e) => { setQ(e.target.value); setActive(-1); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder={canSearchCandidates ? "Search candidates and jobs…" : "Search jobs…"}
-          aria-label="Search candidates"
+          placeholder="Search jobs…"
+          aria-label="Search jobs"
           role="combobox"
           aria-expanded={showPanel}
           aria-controls="admin-search-results"
@@ -110,45 +103,19 @@ export function AdminGlobalSearch({ canSearchCandidates }: { canSearchCandidates
       {showPanel && (
         <div id="admin-search-results" role="listbox" className="absolute inset-x-0 top-full z-40 mt-2 overflow-hidden rounded-xl border bg-background shadow-lg">
           {items.length === 0 && <p className="px-3 py-3 text-sm text-muted-foreground">No matches for “{q.trim()}”.</p>}
-          {data!.candidates.length > 0 && (
-            <div className="py-1">
-              <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Candidates</p>
-              {data!.candidates.map((c) => {
-                const i = ++index;
-                return (
-                  <Link key={c.displayId} href={`/admin/candidates/${c.displayId}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => setOpen(false)} className={row(i)}>
-                    <Avatar name={c.name} size="xs" />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{c.name}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{c.displayId}{c.detail ? ` · ${c.detail}` : ""}</span>
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
           {data!.jobs.length > 0 && (
-            <div className="border-t py-1">
+            <div className="py-1">
               <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Jobs</p>
-              {data!.jobs.map((j) => {
-                const i = ++index;
-                return (
-                  <Link key={j.displayId} href={`/admin/jobs/${j.displayId}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => setOpen(false)} className={row(i)}>
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-md border bg-surface"><Briefcase className="size-3.5" aria-hidden /></span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{j.title}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{j.detail}</span>
-                    </span>
-                  </Link>
-                );
-              })}
+              {data!.jobs.map((j, i) => (
+                <Link key={j.displayId} href={`/admin/jobs/${j.displayId}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onClick={() => setOpen(false)} className={row(i)}>
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md border bg-surface"><Briefcase className="size-3.5" aria-hidden /></span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">{j.title}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{j.detail}</span>
+                  </span>
+                </Link>
+              ))}
             </div>
-          )}
-          {canSearchCandidates && (
-            <Link href={fullSearch} onClick={() => setOpen(false)} className="flex items-center justify-between border-t px-3 py-2.5 text-sm font-medium hover:bg-muted">
-              Search all candidates for “{q.trim()}”
-              <ArrowRight className="size-4" aria-hidden />
-            </Link>
           )}
         </div>
       )}

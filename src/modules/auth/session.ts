@@ -16,7 +16,38 @@ type SessionClaims = {
   user_metadata?: AuthUser["user_metadata"];
   amr?: { method: string; timestamp: number }[];
   iat?: number;
+  session_id?: string;
 };
+
+// ----- Revoked sessions -----
+// Access tokens are verified locally (no Auth round trip), so a token stays cryptographically
+// valid until it expires even after its session is signed out. Each session is therefore also
+// looked up in auth.sessions, with the answer cached briefly per server instance: a signed-out
+// or revoked session stops working within SESSION_CHECK_TTL_MS.
+const SESSION_CHECK_TTL_MS = 30_000;
+type SessionCheck = { at: number; active: Promise<boolean> };
+const sessionGlobal = globalThis as typeof globalThis & { __migSessionChecks?: Map<string, SessionCheck> };
+const sessionChecks = (sessionGlobal.__migSessionChecks ??= new Map<string, SessionCheck>());
+
+function sessionIsActive(sessionId: string | undefined, userId: string): Promise<boolean> {
+  if (!sessionId || !/^[0-9a-f-]{36}$/i.test(sessionId)) return Promise.resolve(false);
+  const now = Date.now();
+  const hit = sessionChecks.get(sessionId);
+  if (hit && now - hit.at < SESSION_CHECK_TTL_MS) return hit.active;
+  const active = prisma
+    .$queryRaw<{ ok: number }[]>`SELECT 1 AS ok FROM auth.sessions WHERE id = ${sessionId}::uuid AND user_id = ${userId}::uuid AND (not_after IS NULL OR not_after > now()) LIMIT 1`
+    .then((rows) => rows.length > 0)
+    .catch((error) => {
+      // Fail open on a database error: every page needs the database anyway, so this only avoids
+      // signing everyone out during a blip; it is not relied on for authorization by itself.
+      console.error("[auth] session lookup failed", error instanceof Error ? error.message : error);
+      sessionChecks.delete(sessionId);
+      return true;
+    });
+  if (sessionChecks.size > 5000) sessionChecks.clear();
+  sessionChecks.set(sessionId, { at: now, active });
+  return active;
+}
 
 /**
  * Signed-in user for this request, from the session's access token. getClaims() verifies the
@@ -31,9 +62,15 @@ type SessionClaims = {
  */
 export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getClaims();
-  const claims = data?.claims as SessionClaims | undefined;
+  let claims: SessionClaims | undefined;
+  try {
+    const { data } = await supabase.auth.getClaims();
+    claims = data?.claims as SessionClaims | undefined;
+  } catch {
+    return null; // unreadable session cookie (the middleware clears it)
+  }
   if (!claims?.sub) return null;
+  if (!(await sessionIsActive(claims.session_id, claims.sub))) return null;
   const signedInAt = claims.amr?.length ? Math.max(...claims.amr.map((a) => a.timestamp)) : claims.iat;
   return {
     id: claims.sub,
@@ -49,8 +86,12 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
 /** Signed-in user confirmed with the Auth server (detects revoked sessions and deleted logins). */
 export const getAuthUserStrict = cache(async (): Promise<AuthUser | null> => {
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getUser();
-  return data.user ?? null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data.user ?? null;
+  } catch {
+    return null; // unreadable session cookie
+  }
 });
 
 /** Sessions older than the configured maximum must sign in again. */

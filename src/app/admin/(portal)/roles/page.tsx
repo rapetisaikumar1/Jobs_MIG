@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
+import { FlashNotice } from "@/components/shared/flash-notice";
 import { param, type SearchParams } from "@/lib/pagination";
 import { Badge } from "@/components/ui/badge";
 import { ActionButton } from "@/components/forms/action-button";
@@ -21,7 +22,8 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
   const canDelete = ctx.can(PERMISSIONS.ROLE_DELETE);
   const roles = await prisma.role.findMany({
     orderBy: [{ isSystem: "desc" }, { name: "asc" }],
-    include: { _count: { select: { users: true, permissions: true } } },
+    // Count only codes in the current catalogue (the database may still hold removed ones).
+    include: { _count: { select: { users: true, permissions: { where: { permission: { code: { in: ALL_PERMISSIONS } } } } } } },
   });
   const notice = param(await searchParams, "notice");
 
@@ -40,19 +42,23 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
         description="A role is a set of permissions. Every staff user has one or more roles."
         actions={<Link href="/admin/roles/new" className={buttonVariants()}>New role</Link>}
       />
-      {notice === "deleted" && <Alert variant="success" className="mb-4">Role deleted.</Alert>}
+      {notice === "deleted" && <FlashNotice><Alert variant="success" className="mb-4">Role deleted.</Alert></FlashNotice>}
       <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
         <Table>
-          <THead><TR><TH>Role</TH><TH>Permissions</TH><TH>Users</TH>{canDelete && <TH className="text-right">Actions</TH>}</TR></THead>
+          <THead><TR><TH>Role</TH><TH className="hidden sm:table-cell">Permissions</TH><TH className="hidden sm:table-cell">Users</TH>{canDelete && <TH className="text-right">Actions</TH>}</TR></THead>
           <TBody>
             {roles.map((r) => (
               <TR key={r.id}>
                 <TD>
                   <Link href={`/admin/roles/${r.id}`} className="font-medium hover:underline">{r.name}</Link> {r.isSystem && <Badge tone="muted">Built-in</Badge>}
                   <p className="text-xs text-muted-foreground">{r.description}</p>
+                  {/* Counts move under the description on phones, where their columns are hidden. */}
+                  <p className="mt-0.5 text-xs text-muted-foreground sm:hidden">
+                    {r._count.permissions} of {ALL_PERMISSIONS.length} permissions · {r._count.users} {r._count.users === 1 ? "user" : "users"}
+                  </p>
                 </TD>
-                <TD className="tabular-nums">{r._count.permissions} of {ALL_PERMISSIONS.length}</TD>
-                <TD className="tabular-nums">{r._count.users}</TD>
+                <TD className="hidden tabular-nums sm:table-cell">{r._count.permissions} of {ALL_PERMISSIONS.length}</TD>
+                <TD className="hidden tabular-nums sm:table-cell">{r._count.users}</TD>
                 {canDelete && (
                   <TD className="text-right">
                     {r.isSystem ? (

@@ -18,7 +18,9 @@ function jobData(input: JobInput) {
     maxExperience: input.maxExperience ?? null,
     education: input.education ?? null,
     country: input.country,
-    state: input.state,
+    // "state" keeps the first selection so code that reads only the single column still works.
+    state: input.states[0],
+    states: input.states,
     city: input.city,
     workArrangement: input.workArrangement,
     employmentType: input.employmentType,
@@ -28,17 +30,7 @@ function jobData(input: JobInput) {
     compensationType: input.compensationType,
     salaryPublic: input.salaryPublic,
     applicationDeadline: input.applicationDeadline ?? null,
-    assignedRecruiterId: input.assignedRecruiterId ?? null,
-    internalNotes: input.internalNotes ?? null,
-    isFeatured: input.isFeatured,
   };
-}
-
-async function validateReferences(input: JobInput) {
-  if (input.assignedRecruiterId) {
-    const recruiter = await prisma.user.findFirst({ where: { id: input.assignedRecruiterId, type: "STAFF", isActive: true } });
-    if (!recruiter) throw new AppError("Select an active staff member as the assigned recruiter.");
-  }
 }
 
 /**
@@ -46,8 +38,6 @@ async function validateReferences(input: JobInput) {
  * The database assigns the Job ID and Case File ID from sequences.
  */
 export async function createJob(ctx: StaffContext, input: JobInput) {
-  await validateReferences(input);
-
   return prisma.$transaction(async (tx) => {
     const job = await tx.job.create({
       data: {
@@ -66,7 +56,6 @@ export async function createJob(ctx: StaffContext, input: JobInput) {
 /** Updates job details. Never touches status or the original posted date. */
 export async function updateJob(ctx: StaffContext, jobId: string, input: JobInput) {
   await assertJobAccess(ctx, jobId);
-  await validateReferences(input);
   return prisma.$transaction(async (tx) => {
     const job = await tx.job.update({ where: { id: jobId }, data: jobData(input) });
     await replaceJobSkills(tx, jobId, input.requiredSkills, input.preferredSkills);

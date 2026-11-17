@@ -5,14 +5,11 @@ import {
   CURRENCY_LABELS,
   EMPLOYMENT_TYPE_LABELS,
   QUALIFICATION_LABELS,
-  SOURCE_LABELS,
   WORK_ARRANGEMENT_LABELS,
   WORK_AUTH_STATUS_LABELS,
 } from "@/config/options";
 import { regionsFor } from "@/config/locations";
 import {
-  checkbox,
-  email,
   enumValues,
   optionalDate,
   optionalEnum,
@@ -20,11 +17,9 @@ import {
   optionalPhone,
   optionalText,
   optionalUrl,
-  optionalUuid,
   phone,
   requiredText,
   stringList,
-  uuid,
 } from "@/lib/validation";
 
 const POSTAL_PATTERNS: Record<string, RegExp> = {
@@ -32,7 +27,7 @@ const POSTAL_PATTERNS: Record<string, RegExp> = {
   CA: /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/,
 };
 
-/** Profile fields shared by the candidate portal and the admin portal. */
+/** Profile fields a candidate maintains on the portal. */
 export const candidateProfileFields = {
   firstName: requiredText("First name", 80),
   lastName: requiredText("Last name", 80),
@@ -114,22 +109,5 @@ function refineProfile(v: ProfileShape, ctx: z.RefinementCtx) {
 /** Candidate editing their own profile on the portal (email is managed by the account). */
 export const candidateSelfProfileSchema = z.object(candidateProfileFields).superRefine(refineProfile);
 
-/** Staff creating or editing a candidate record. */
-export const staffCandidateSchema = z
-  .object({
-    ...candidateProfileFields,
-    email,
-    source: z.enum(enumValues(SOURCE_LABELS)),
-    profileOwnerId: optionalUuid,
-    internalNotes: optionalText(5000),
-    /** Pending uploads (resume first) to attach to the profile. */
-    documentIds: z.array(uuid).max(10).default([]),
-    /** Recruiter confirmed the record is not a duplicate of a similar existing profile. */
-    confirmNotDuplicate: checkbox,
-  })
-  .superRefine(refineProfile);
-
 export type CandidateSelfProfileInput = z.output<typeof candidateSelfProfileSchema>;
 export type CandidateSelfProfileFormValues = z.input<typeof candidateSelfProfileSchema>;
-export type StaffCandidateInput = z.output<typeof staffCandidateSchema>;
-export type StaffCandidateFormValues = z.input<typeof staffCandidateSchema>;

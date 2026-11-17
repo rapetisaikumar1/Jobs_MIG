@@ -9,17 +9,14 @@ import { requireStaffForAction } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
 import { requireCandidateForAction } from "@/modules/auth/session";
 import {
-  addCandidateToJobSchema,
   applicationNoteSchema,
   applySchema,
   assignRecruiterSchema,
   statusUpdateSchema,
-  type AddCandidateToJobFormValues,
   type ApplyFormValues,
 } from "@/modules/applications/schemas";
 import {
   addApplicationNote,
-  addCandidateToJob,
   assignApplicationRecruiter,
   submitPortalApplication,
   updateApplicationStatus,
@@ -35,19 +32,6 @@ export async function applyForJobAction(values: ApplyFormValues): Promise<Action
     revalidatePath("/candidate", "layout");
     revalidatePath(`/jobs/${result.jobDisplayId}`);
     return ok({ displayId: result.displayId }, "Application submitted.");
-  });
-}
-
-export async function addCandidateToJobAction(
-  values: AddCandidateToJobFormValues,
-): Promise<ActionResult<{ displayId: string }>> {
-  return runAction(async () => {
-    const ctx = await requireStaffForAction(PERMISSIONS.APPLICATION_CREATE);
-    const parsed = addCandidateToJobSchema.safeParse(values);
-    if (!parsed.success) return validationFailure(parsed.error);
-    const result = await addCandidateToJob(ctx, parsed.data);
-    revalidatePath("/admin", "layout");
-    return ok({ displayId: result.displayId }, "Candidate added to the job.");
   });
 }
 

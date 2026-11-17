@@ -1,6 +1,7 @@
+import { stripControlChars } from "@/lib/utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { EMPLOYMENT_TYPE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
-import { formatLocation } from "@/config/locations";
+import { formatJobLocation, jobStates } from "@/config/locations";
 import { suggestPublicJobs } from "@/modules/jobs/queries";
 import { allowRequest } from "@/lib/memory-rate-limit";
 
@@ -12,8 +13,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: { "Retry-After": "60" } });
   }
   const params = request.nextUrl.searchParams;
-  const q = params.get("q")?.trim().slice(0, 100) || undefined;
-  const location = params.get("location")?.trim().slice(0, 100) || undefined;
+  const q = stripControlChars(params.get("q") ?? "").trim().slice(0, 100) || undefined;
+  const location = stripControlChars(params.get("location") ?? "").trim().slice(0, 100) || undefined;
   const country = params.get("country");
   if (!q && !location) return NextResponse.json({ total: 0, jobs: [] });
 
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       jobs: jobs.map((job) => ({
         displayId: job.displayId,
         title: job.title,
-        location: formatLocation(job.city, job.state, job.country),
+        location: formatJobLocation(job.city, jobStates(job), job.country),
         meta: `${WORK_ARRANGEMENT_LABELS[job.workArrangement]} · ${EMPLOYMENT_TYPE_LABELS[job.employmentType]}`,
       })),
     },

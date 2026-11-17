@@ -32,7 +32,7 @@ export default async function CandidateLayout({ children }: { children: React.Re
           </div>
         </div>
       </div>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+      <main id="main" tabIndex={-1} className="outline-none mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
       <SiteFooter />
     </div>
   );

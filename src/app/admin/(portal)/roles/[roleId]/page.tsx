@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
+import { FlashNotice } from "@/components/shared/flash-notice";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { ActionButton } from "@/components/forms/action-button";
@@ -10,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { uuid } from "@/lib/validation";
 import { param, type SearchParams } from "@/lib/pagination";
 import { requireStaff } from "@/modules/access-control/context";
-import { LOCKED_ROLE_KEYS, PERMISSION_DESCRIPTIONS, PERMISSION_GROUPS, PERMISSIONS } from "@/modules/access-control/permissions";
+import { ALL_PERMISSIONS, LOCKED_ROLE_KEYS, PERMISSION_DESCRIPTIONS, PERMISSION_GROUPS, PERMISSIONS } from "@/modules/access-control/permissions";
 import { deleteRoleAction } from "@/modules/access-control/actions";
 
 export const metadata: Metadata = { title: "Role" };
@@ -24,6 +25,9 @@ export default async function RolePage({ params, searchParams }: { params: Promi
   const locked = !!role.key && LOCKED_ROLE_KEYS.includes(role.key);
   const canDelete = !role.isSystem && ctx.can(PERMISSIONS.ROLE_DELETE);
   const inUse = role._count.users > 0;
+  // The database may still hold permission codes removed from the catalogue; they grant nothing,
+  // so they are neither shown nor sent back (the form only accepts current codes).
+  const known = new Set<string>(ALL_PERMISSIONS);
 
   async function remove() {
     "use server";
@@ -50,7 +54,7 @@ export default async function RolePage({ params, searchParams }: { params: Promi
           </ActionButton>
         )}
       />
-      {param(await searchParams, "notice") === "created" && <Alert variant="success" className="mb-4">Role {role.name} created.</Alert>}
+      {param(await searchParams, "notice") === "created" && <FlashNotice><Alert variant="success" className="mb-4">Role {role.name} created.</Alert></FlashNotice>}
       {locked && <Alert variant="neutral" className="mb-4">The {role.name} role is built in and cannot be changed.</Alert>}
       {canDelete && inUse && (
         <Alert variant="neutral" className="mb-4">
@@ -61,7 +65,7 @@ export default async function RolePage({ params, searchParams }: { params: Promi
         <RoleForm
           roleId={role.id}
           readOnly={locked}
-          defaultValues={{ name: role.name, description: role.description ?? "", permissions: role.permissions.map((p) => p.permission.code) }}
+          defaultValues={{ name: role.name, description: role.description ?? "", permissions: role.permissions.map((p) => p.permission.code).filter((code) => known.has(code)) }}
           groups={PERMISSION_GROUPS.map((g) => ({ label: g.label, permissions: g.permissions.map((code) => ({ code, description: PERMISSION_DESCRIPTIONS[code] })) }))}
         />
       </CardContent></Card>

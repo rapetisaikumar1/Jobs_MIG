@@ -3,17 +3,28 @@ import { prisma } from "@/lib/prisma";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { AppError, ForbiddenError } from "@/lib/action-result";
 import type { StaffContext } from "@/modules/access-control/context";
-import { LOCKED_ROLE_KEYS, SYSTEM_ROLE_KEYS } from "@/modules/access-control/permissions";
+import { ALL_PERMISSIONS, LOCKED_ROLE_KEYS, SYSTEM_ROLE_KEYS, type Permission } from "@/modules/access-control/permissions";
 
 // ----- Privilege containment -----
 // Anyone other than a Super Admin may only hand out, or manage accounts holding, permissions
 // they hold themselves. Otherwise a custom role with "user.manage" or "role.manage" could grant
 // itself everything (or take over a more privileged account by resetting its password).
 
+const KNOWN_PERMISSIONS = new Set<string>(ALL_PERMISSIONS);
+
+/**
+ * True for codes in the current catalogue. The database can still hold codes that were removed
+ * from the code (until the permission sync runs); they grant nothing (see resolvePermissions),
+ * so they are ignored everywhere rather than compared, displayed or saved.
+ */
+function isKnownPermission(code: string): code is Permission {
+  return KNOWN_PERMISSIONS.has(code);
+}
+
 function assertWithinOwnPermissions(ctx: StaffContext, codes: Iterable<string>, message: string) {
   if (ctx.isSuperAdmin) return;
   for (const code of codes) {
-    if (!ctx.permissions.has(code as never)) throw new ForbiddenError(message);
+    if (isKnownPermission(code) && !ctx.permissions.has(code)) throw new ForbiddenError(message);
   }
 }
 
@@ -181,7 +192,7 @@ export async function saveRole(
     where: { name: { equals: input.name.trim(), mode: "insensitive" }, ...(roleId ? { NOT: { id: roleId } } : {}) },
   });
   if (sameName) throw new AppError(`A role named "${sameName.name}" already exists.`);
-  const permissions = await prisma.permission.findMany({ where: { code: { in: input.permissions } } });
+  const permissions = await prisma.permission.findMany({ where: { code: { in: input.permissions.filter(isKnownPermission) } } });
   assertWithinOwnPermissions(ctx, permissions.map((p) => p.code), "You can only give a role permissions you have yourself.");
 
   return prisma.$transaction(async (tx) => {

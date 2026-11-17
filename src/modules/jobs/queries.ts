@@ -9,13 +9,13 @@ export const PUBLIC_JOBS_CACHE = "public-jobs:";
 const PUBLIC_TTL_MS = 30_000;
 import { openDeadlineCutoff, skillSlug } from "@/lib/format";
 import { pageArgs } from "@/lib/pagination";
-import { CA_PROVINCES, US_STATES } from "@/config/locations";
+import { parseLocationQuery } from "@/config/locations";
 import type { StaffContext } from "@/modules/access-control/context";
 import { jobScopeWhere } from "@/modules/access-control/scope";
 
 // ----- Public portal -----
 
-/** Fields safe for the public portal: no internal notes or recruiter details. */
+/** Fields safe for the public portal: no internal or recruiter details. */
 export const publicJobSelect = {
   id: true,
   displayId: true,
@@ -27,6 +27,7 @@ export const publicJobSelect = {
   education: true,
   country: true,
   state: true,
+  states: true,
   city: true,
   workArrangement: true,
   employmentType: true,
@@ -36,7 +37,6 @@ export const publicJobSelect = {
   compensationType: true,
   salaryPublic: true,
   applicationDeadline: true,
-  isFeatured: true,
   status: true,
   publishedAt: true,
   skills: { select: { type: true, skill: { select: { name: true } } } },
@@ -74,13 +74,17 @@ export type PublicJobFilters = {
 };
 
 function locationWhere(location: string): Prisma.JobWhereInput {
-  const lower = location.toLowerCase();
-  const regionCodes = [...US_STATES, ...CA_PROVINCES]
-    .filter((r) => r.name.toLowerCase().includes(lower) || r.code.toLowerCase() === lower)
-    .map((r) => r.code);
-  return {
-    OR: [{ city: { contains: location, mode: "insensitive" } }, ...(regionCodes.length ? [{ state: { in: regionCodes } }] : [])],
-  };
+  const { city, regions, regionOnly } = parseLocationQuery(location);
+  // "states" lists every state the job is open in; "state" also matches rows saved by older
+  // code that never filled "states".
+  const inRegions: Prisma.JobWhereInput[] = regions.length ? [{ states: { hasSome: regions } }, { state: { in: regions } }] : [];
+  const cityMatch: Prisma.JobWhereInput = { city: { contains: city ?? "", mode: "insensitive" } };
+  if (!city) return { OR: inRegions };
+  if (regionOnly) {
+    // "Austin, TX": the city in that region (or just the city when the region part is unknown).
+    return inRegions.length ? { AND: [cityMatch, { OR: inRegions }] } : cityMatch;
+  }
+  return { OR: [cityMatch, ...inRegions] };
 }
 
 export function publicJobsWhere(filters: PublicJobFilters): Prisma.JobWhereInput {
@@ -126,17 +130,15 @@ export async function listHomepageJobs() {
   return cached(`${PUBLIC_JOBS_CACHE}home`, PUBLIC_TTL_MS, loadHomepageJobs);
 }
 
+/** The most recently posted open jobs. */
 async function loadHomepageJobs() {
-  const [featured, recent] = await Promise.all([
-    prisma.job.findMany({
-      where: { AND: [openJobsWhere(), { isFeatured: true }] },
-      orderBy: { publishedAt: "desc" },
-      take: 3,
-      select: publicJobCardSelect,
-    }),
-    prisma.job.findMany({ where: openJobsWhere(), orderBy: { publishedAt: "desc" }, take: 6, select: publicJobCardSelect }),
-  ]);
-  return { featured: featured.map(redactHiddenSalary), recent: recent.map(redactHiddenSalary) };
+  const recent = await prisma.job.findMany({
+    where: openJobsWhere(),
+    orderBy: [{ publishedAt: "desc" }, { displayId: "desc" }],
+    take: 6,
+    select: publicJobCardSelect,
+  });
+  return { recent: recent.map(redactHiddenSalary) };
 }
 
 /** Count of jobs open for applications (homepage headline). */
@@ -157,7 +159,7 @@ async function loadSuggestions(filters: PublicJobFilters, take: number) {
       where,
       orderBy: [{ publishedAt: "desc" }, { displayId: "desc" }],
       take,
-      select: { displayId: true, title: true, city: true, state: true, country: true, workArrangement: true, employmentType: true },
+      select: { displayId: true, title: true, city: true, state: true, states: true, country: true, workArrangement: true, employmentType: true },
     }),
   ]);
   return { total, jobs };
@@ -186,14 +188,13 @@ export async function listSkillSuggestions(limit = 300) {
 
 // ----- Admin portal -----
 
-export type AdminJobFilters = { q?: string; status?: JobStatus; mine?: boolean };
+export type AdminJobFilters = { q?: string; status?: JobStatus };
 
 export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters, page: number) {
   const where: Prisma.JobWhereInput = {
     AND: [
       jobScopeWhere(ctx),
       filters.status ? { status: filters.status } : {},
-      filters.mine ? { assignedRecruiterId: ctx.user.id } : {},
       filters.q
         ? {
             OR: [
@@ -218,11 +219,11 @@ export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters,
         status: true,
         city: true,
         state: true,
+        states: true,
         country: true,
         createdAt: true,
         publishedAt: true,
         caseFile: { select: { displayId: true } },
-        assignedRecruiter: { select: { firstName: true, lastName: true } },
       },
     }),
   ]);
@@ -240,10 +241,11 @@ export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters,
 export async function getAdminJob(ctx: StaffContext, displayId: string) {
   const job = await prisma.job.findFirst({
     where: { AND: [{ displayId: displayId.toUpperCase() }, jobScopeWhere(ctx)] },
+    // Retired columns (featured flag, job-level recruiter, internal notes) are left unread.
+    omit: { isFeatured: true, assignedRecruiterId: true, internalNotes: true },
     include: {
       caseFile: true,
       skills: { include: { skill: true } },
-      assignedRecruiter: { select: { id: true, firstName: true, lastName: true } },
       createdBy: { select: { firstName: true, lastName: true } },
     },
   });
@@ -258,15 +260,4 @@ export async function getAdminJob(ctx: StaffContext, displayId: string) {
     caseFile: job.caseFile ? { ...job.caseFile, _count: { folders } } : null,
     _count: { applications },
   };
-}
-
-export async function listJobFormOptions() {
-  const [staff] = await Promise.all([
-    prisma.user.findMany({
-      where: { type: "STAFF", isActive: true },
-      orderBy: { firstName: "asc" },
-      select: { id: true, firstName: true, lastName: true },
-    }),
-  ]);
-  return { staff };
 }

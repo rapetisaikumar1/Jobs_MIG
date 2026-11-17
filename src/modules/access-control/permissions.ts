@@ -6,11 +6,7 @@ export const PERMISSIONS = {
   JOB_EDIT: "job.edit",
   JOB_PUBLISH: "job.publish",
   JOB_CLOSE: "job.close",
-  CANDIDATE_VIEW: "candidate.view",
-  CANDIDATE_ADD: "candidate.add",
-  CANDIDATE_EDIT: "candidate.edit",
   APPLICATION_VIEW: "application.view",
-  APPLICATION_CREATE: "application.create",
   APPLICATION_UPDATE_STATUS: "application.update_status",
   APPLICATION_ASSIGN: "application.assign",
   APPLICATION_NOTE: "application.note",
@@ -26,16 +22,12 @@ export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS) as Permission[];
 
 export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
-  "job.view_all": "See all jobs (otherwise only jobs they created or are assigned to)",
+  "job.view_all": "See all jobs (otherwise only jobs they created)",
   "job.create": "Create jobs",
-  "job.edit": "Edit job details and the assigned recruiter",
+  "job.edit": "Edit job details",
   "job.publish": "Publish and re-open jobs",
   "job.close": "Close, archive and unarchive jobs",
-  "candidate.view": "View candidates and use advanced search",
-  "candidate.add": "Add internal candidates",
-  "candidate.edit": "Edit candidate profiles and their documents",
   "application.view": "View applications",
-  "application.create": "Add existing candidates to jobs",
   "application.update_status": "Change application status",
   "application.assign": "Assign a recruiter to an application",
   "application.note": "Add internal notes to applications",
@@ -49,8 +41,7 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
 /** Permission groups shown on the role form. */
 export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] = [
   { label: "Jobs", permissions: ["job.view_all", "job.create", "job.edit", "job.publish", "job.close"] },
-  { label: "Candidates", permissions: ["candidate.view", "candidate.add", "candidate.edit"] },
-  { label: "Applications", permissions: ["application.view", "application.create", "application.update_status", "application.assign", "application.note"] },
+  { label: "Applications", permissions: ["application.view", "application.update_status", "application.assign", "application.note"] },
   { label: "Case files & documents", permissions: ["case_file.view", "document.view"] },
   { label: "Administration", permissions: ["user.manage", "role.manage", "role.delete"] },
 ];
@@ -73,15 +64,14 @@ export const SYSTEM_ROLES: Record<SystemRoleKey, { name: string; description: st
   },
   ADMIN: {
     name: "Admin",
-    description: "Manages jobs, candidates, applications and case files.",
+    description: "Manages jobs, applications and case files.",
     permissions: ALL_PERMISSIONS.filter((p) => p !== P.USER_MANAGE && p !== P.ROLE_MANAGE && p !== P.ROLE_DELETE),
   },
   RECRUITER: {
     name: "Recruiter",
-    description: "Works on their jobs: searches and adds candidates, reviews applications.",
+    description: "Works on their jobs: reviews applications and case files.",
     permissions: [
-      P.CANDIDATE_VIEW, P.CANDIDATE_ADD, P.CANDIDATE_EDIT,
-      P.APPLICATION_VIEW, P.APPLICATION_CREATE, P.APPLICATION_UPDATE_STATUS, P.APPLICATION_ASSIGN, P.APPLICATION_NOTE,
+      P.APPLICATION_VIEW, P.APPLICATION_UPDATE_STATUS, P.APPLICATION_ASSIGN, P.APPLICATION_NOTE,
       P.CASE_FILE_VIEW, P.DOCUMENT_VIEW,
     ],
   },

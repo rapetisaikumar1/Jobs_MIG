@@ -27,6 +27,8 @@ async function main() {
       email,
       password,
       email_confirm: true,
+      // Marks the login as staff so the job portal sends it to the admin portal (see modules/auth/portal.ts).
+      app_metadata: { portal: "staff" },
       user_metadata: { account_type: "staff", first_name: firstName, last_name: lastName },
     });
     if (error || !data.user) throw error ?? new Error("Could not create the login");

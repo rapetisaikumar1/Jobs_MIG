@@ -1,6 +1,6 @@
 import type { CandidateProfile, CandidateSkill, Skill } from "@prisma/client";
-import { decimalToNumber, toDateInputValue } from "@/lib/format";
-import type { CandidateSelfProfileFormValues, StaffCandidateFormValues } from "@/modules/candidates/schemas";
+import { decimalToNumber, formatPhone, toDateInputValue } from "@/lib/format";
+import type { CandidateSelfProfileFormValues } from "@/modules/candidates/schemas";
 
 type ProfileWithSkills = CandidateProfile & { skills: (CandidateSkill & { skill: Skill })[] };
 
@@ -11,8 +11,9 @@ export function profileToFormValues(p: ProfileWithSkills): CandidateSelfProfileF
   return {
     firstName: p.firstName,
     lastName: p.lastName,
-    phone: p.phone ?? "",
-    alternatePhone: str(p.alternatePhone),
+    // Shown as "+1 (416) 555-0100"; the schema normalizes it back on save.
+    phone: p.phone ? formatPhone(p.phone) : "",
+    alternatePhone: p.alternatePhone ? formatPhone(p.alternatePhone) : "",
     country: p.country,
     state: str(p.state),
     city: str(p.city),
@@ -42,22 +43,10 @@ export function profileToFormValues(p: ProfileWithSkills): CandidateSelfProfileF
   };
 }
 
-export function staffProfileToFormValues(p: ProfileWithSkills): StaffCandidateFormValues {
-  return {
-    ...profileToFormValues(p),
-    email: p.email,
-    source: p.source,
-    profileOwnerId: str(p.profileOwnerId),
-    internalNotes: str(p.internalNotes),
-    documentIds: [],
-    confirmNotDuplicate: false,
-  };
-}
-
-export const EMPTY_STAFF_CANDIDATE: StaffCandidateFormValues = {
+/** Blank profile form values. */
+export const EMPTY_CANDIDATE_PROFILE: CandidateSelfProfileFormValues = {
   firstName: "",
   lastName: "",
-  email: "",
   phone: "",
   alternatePhone: "",
   country: "US",
@@ -86,9 +75,10 @@ export const EMPTY_STAFF_CANDIDATE: StaffCandidateFormValues = {
   availableFrom: "",
   workAuthCountry: "",
   workAuthStatus: "",
-  source: "INTERNAL_RECRUITMENT",
-  profileOwnerId: "",
-  internalNotes: "",
-  documentIds: [],
-  confirmNotDuplicate: false,
 };
+
+/**
+ * @deprecated Use EMPTY_CANDIDATE_PROFILE. Old name kept only because
+ * src/app/candidate/profile/page.tsx still imports it.
+ */
+export const EMPTY_STAFF_CANDIDATE = EMPTY_CANDIDATE_PROFILE;

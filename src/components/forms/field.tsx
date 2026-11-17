@@ -32,10 +32,21 @@ export function Field({
           {error}
         </p>
       ) : hint ? (
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">{hint}</p>
       ) : null}
     </div>
   );
+}
+
+/**
+ * ARIA props for the control inside a <Field id={id}>: marks it invalid (which also gives it the
+ * red border) and points it at the Field's error message, or at its hint when there is no error.
+ */
+export function fieldAria(id: string, error?: string | null, hint?: boolean) {
+  return {
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby": error ? `${id}-error` : hint ? `${id}-hint` : undefined,
+  } as const;
 }
 
 export function FormSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {

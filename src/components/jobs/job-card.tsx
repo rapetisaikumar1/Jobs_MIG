@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Briefcase, CalendarDays, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EMPLOYMENT_TYPE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
-import { formatLocation } from "@/config/locations";
+import { formatJobLocation, formatRegionNames, jobStates } from "@/config/locations";
 import {
   decimalToNumber,
   formatCalendarDate,
@@ -46,7 +46,6 @@ export function JobCard({ job, timeZone, applied }: { job: PublicJobCard; timeZo
             </Link>
           </h3>
           <div className="flex shrink-0 flex-wrap justify-end gap-1">
-            {job.isFeatured && <Badge tone="dark" className="px-1.5 text-[11px]">Featured</Badge>}
             {applied ? (
               <Badge tone="info" dot className="px-1.5 text-[11px]">Already applied</Badge>
             ) : (
@@ -55,8 +54,10 @@ export function JobCard({ job, timeZone, applied }: { job: PublicJobCard; timeZo
           </div>
         </div>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
-          <MapPin className="size-3.5 shrink-0" aria-hidden />
-          <span>{formatLocation(job.city, job.state, job.country)}</span>
+          <span className="inline-flex min-w-0 items-center gap-1.5" title={jobStates(job).length > 1 ? formatRegionNames(job.country, jobStates(job)) : undefined}>
+            <MapPin className="size-3.5 shrink-0" aria-hidden />
+            {formatJobLocation(job.city, jobStates(job), job.country)}
+          </span>
           <span aria-hidden>·</span>
           <span>{WORK_ARRANGEMENT_LABELS[job.workArrangement]}</span>
           <span aria-hidden>·</span>

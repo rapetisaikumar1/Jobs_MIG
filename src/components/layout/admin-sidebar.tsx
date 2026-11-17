@@ -30,7 +30,9 @@ export function AdminSidebar({ items }: { items: AdminNavItem[] }) {
   const pathname = usePathname();
   let lastSection: string | undefined;
   return (
-    <nav className="flex gap-1 overflow-x-auto px-3 py-2 lg:flex-col lg:overflow-visible lg:py-4" aria-label="Admin">
+    // Below lg the links wrap onto a second row instead of scrolling sideways, so every section
+    // (and the current one) is always visible on phones. From lg it is the vertical sidebar.
+    <nav className="flex flex-wrap gap-1 px-3 py-2 lg:flex-col lg:flex-nowrap lg:py-4" aria-label="Admin">
       {items.map((item) => {
         const Icon = ICONS[item.icon];
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);

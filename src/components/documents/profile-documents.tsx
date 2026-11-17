@@ -50,7 +50,7 @@ export function ProfileDocuments({
                 <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                 <span className="min-w-0">
                   <span className="flex items-center gap-2">
-                    <span className="truncate font-medium">{doc.fileName}</span>
+                    <span className="truncate font-medium" title={doc.fileName}>{doc.fileName}</span>
                     {doc.id === defaultResumeId && <Badge tone="dark">Default resume</Badge>}
                   </span>
                   <span className="text-xs text-muted-foreground">
@@ -58,7 +58,7 @@ export function ProfileDocuments({
                   </span>
                 </span>
               </span>
-              <span className="flex items-center gap-2">
+              <span className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
                 {canOpen && <DocumentLinks doc={doc} />}
                 {canEdit && doc.type === "RESUME" && doc.id !== defaultResumeId && (
                   <ActionButton variant="ghost" size="sm" action={() => setDefaultResumeAction({ documentId: doc.id, candidateId })}>

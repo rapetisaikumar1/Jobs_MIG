@@ -6,9 +6,10 @@ import { useForm, type UseFormRegister } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, Textarea } from "@/components/ui/input";
-import { Field } from "@/components/forms/field";
+import { Field, fieldAria } from "@/components/forms/field";
 import { FormAlert } from "@/components/forms/form-alert";
 import { applyServerErrors } from "@/components/forms/form-utils";
+import { cn } from "@/lib/utils";
 import {
   roleSchema,
   staffPasswordSchema,
@@ -29,9 +30,15 @@ import {
 type Option = { id: string; name: string; description?: string | null };
 type Message = { ok: boolean; text: string } | null;
 
-function RoleChecklist({ roles, register }: { roles: Option[]; register: UseFormRegister<{ roleIds: string[] }> }) {
+function RoleChecklist({ roles, register, error }: { roles: Option[]; register: UseFormRegister<{ roleIds: string[] }>; error?: string }) {
   return (
-    <div className="grid gap-2 rounded-md border p-3 sm:grid-cols-2">
+    <div
+      id="roleIds"
+      role="group"
+      aria-label="Roles"
+      {...fieldAria("roleIds", error)}
+      className={cn("grid gap-2 rounded-md border p-3 sm:grid-cols-2", error && "border-destructive")}
+    >
       {roles.map((o) => (
         <label key={o.id} className="flex items-start gap-2 text-sm">
           <Checkbox className="mt-0.5" value={o.id} {...register("roleIds")} />
@@ -72,20 +79,20 @@ export function CreateStaffUserForm({ roles, defaultRoleIds }: { roles: Option[]
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       <FormAlert error={msg && !msg.ok ? msg.text : null} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="firstName" label="First name" required error={e.firstName?.message}><Input id="firstName" {...register("firstName")} /></Field>
-        <Field id="lastName" label="Last name" required error={e.lastName?.message}><Input id="lastName" {...register("lastName")} /></Field>
+        <Field id="firstName" label="First name" required error={e.firstName?.message}><Input id="firstName" {...fieldAria("firstName", e.firstName?.message)} {...register("firstName")} /></Field>
+        <Field id="lastName" label="Last name" required error={e.lastName?.message}><Input id="lastName" {...fieldAria("lastName", e.lastName?.message)} {...register("lastName")} /></Field>
         <Field id="email" label="Work email" required error={e.email?.message} hint="The user signs in with this email." className="sm:col-span-2">
-          <Input id="email" type="email" autoComplete="off" {...register("email")} />
+          <Input id="email" type="email" autoComplete="off" {...fieldAria("email", e.email?.message, true)} {...register("email")} />
         </Field>
         <Field id="password" label="Initial password" required error={e.password?.message} hint={PASSWORD_HINT}>
-          <Input id="password" type="password" autoComplete="new-password" {...register("password")} />
+          <Input id="password" type="password" autoComplete="new-password" {...fieldAria("password", e.password?.message, true)} {...register("password")} />
         </Field>
         <Field id="confirmPassword" label="Confirm password" required error={e.confirmPassword?.message}>
-          <Input id="confirmPassword" type="password" autoComplete="new-password" {...register("confirmPassword")} />
+          <Input id="confirmPassword" type="password" autoComplete="new-password" {...fieldAria("confirmPassword", e.confirmPassword?.message)} {...register("confirmPassword")} />
         </Field>
       </div>
       <Field id="roleIds" label="Roles" required error={e.roleIds?.message}>
-        <RoleChecklist roles={roles} register={register as unknown as UseFormRegister<{ roleIds: string[] }>} />
+        <RoleChecklist roles={roles} register={register as unknown as UseFormRegister<{ roleIds: string[] }>} error={e.roleIds?.message} />
       </Field>
       <p className="text-xs text-muted-foreground">
         The account is active immediately. Share the initial password with the user securely; they can change it later from “Forgot password”.
@@ -120,14 +127,14 @@ export function EditStaffUserForm({ userId, email, defaultValues, roles }: { use
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       <FormAlert error={msg && !msg.ok ? msg.text : null} success={msg?.ok ? msg.text : null} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="firstName" label="First name" required error={e.firstName?.message}><Input id="firstName" {...register("firstName")} /></Field>
-        <Field id="lastName" label="Last name" required error={e.lastName?.message}><Input id="lastName" {...register("lastName")} /></Field>
+        <Field id="firstName" label="First name" required error={e.firstName?.message}><Input id="firstName" {...fieldAria("firstName", e.firstName?.message)} {...register("firstName")} /></Field>
+        <Field id="lastName" label="Last name" required error={e.lastName?.message}><Input id="lastName" {...fieldAria("lastName", e.lastName?.message)} {...register("lastName")} /></Field>
         <Field id="email" label="Work email" hint="The sign-in email cannot be changed." className="sm:col-span-2">
-          <Input id="email" value={email} readOnly disabled />
+          <Input id="email" value={email} readOnly disabled aria-describedby="email-hint" />
         </Field>
       </div>
       <Field id="roleIds" label="Roles" required error={e.roleIds?.message}>
-        <RoleChecklist roles={roles} register={register as unknown as UseFormRegister<{ roleIds: string[] }>} />
+        <RoleChecklist roles={roles} register={register as unknown as UseFormRegister<{ roleIds: string[] }>} error={e.roleIds?.message} />
       </Field>
       <div className="flex justify-end">
         <Button type="submit" loading={formState.isSubmitting} disabled={formState.isSubmitting}>Save changes</Button>
@@ -160,10 +167,10 @@ export function SetPasswordForm({ userId }: { userId: string }) {
       <FormAlert error={msg && !msg.ok ? msg.text : null} success={msg?.ok ? msg.text : null} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field id="newPassword" label="New password" error={e.password?.message} hint={PASSWORD_HINT}>
-          <Input id="newPassword" type="password" autoComplete="new-password" {...register("password")} />
+          <Input id="newPassword" type="password" autoComplete="new-password" {...fieldAria("newPassword", e.password?.message, true)} {...register("password")} />
         </Field>
         <Field id="confirmNewPassword" label="Confirm new password" error={e.confirmPassword?.message}>
-          <Input id="confirmNewPassword" type="password" autoComplete="new-password" {...register("confirmPassword")} />
+          <Input id="confirmNewPassword" type="password" autoComplete="new-password" {...fieldAria("confirmNewPassword", e.confirmPassword?.message)} {...register("confirmPassword")} />
         </Field>
       </div>
       <div className="flex justify-end">
@@ -211,9 +218,9 @@ export function RoleForm({ roleId, defaultValues, groups, readOnly }: { roleId?:
       <FormAlert error={msg && !msg.ok ? msg.text : null} success={msg?.ok ? msg.text : null} />
       <fieldset disabled={readOnly} className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="name" label="Role name" required error={formState.errors.name?.message}><Input id="name" {...register("name")} /></Field>
+          <Field id="name" label="Role name" required error={formState.errors.name?.message}><Input id="name" {...fieldAria("name", formState.errors.name?.message)} {...register("name")} /></Field>
           <Field id="description" label="Description" hint="Optional · shown next to the role when assigning it to users" error={formState.errors.description?.message} className="sm:col-span-2">
-            <Textarea id="description" rows={2} {...register("description")} />
+            <Textarea id="description" rows={2} {...fieldAria("description", formState.errors.description?.message, true)} {...register("description")} />
           </Field>
         </div>
         <div>

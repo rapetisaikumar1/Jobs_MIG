@@ -9,7 +9,7 @@ import { getViewerTimeZone } from "@/lib/request";
 import { requireStaff } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
 import { jobToFormValues } from "@/modules/jobs/form-values";
-import { getAdminJob, listJobFormOptions, listSkillSuggestions } from "@/modules/jobs/queries";
+import { getAdminJob, listSkillSuggestions } from "@/modules/jobs/queries";
 
 export const metadata: Metadata = { title: "Edit job" };
 
@@ -17,7 +17,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
   const ctx = await requireStaff(PERMISSIONS.JOB_EDIT);
   const job = await getAdminJob(ctx, (await params).jobId);
   if (!job) notFound();
-  const [{ staff }, skills, tz] = await Promise.all([listJobFormOptions(), listSkillSuggestions(), getViewerTimeZone()]);
+  const [skills, tz] = await Promise.all([listSkillSuggestions(), getViewerTimeZone()]);
   return (
     <div className="max-w-5xl">
       <PageHeader title={`Edit ${job.title}`} description="Editing never changes the original posted date." back={{ href: `/admin/jobs/${job.displayId}`, label: job.displayId }} />
@@ -25,7 +25,6 @@ export default async function EditJobPage({ params }: { params: Promise<{ jobId:
         <JobForm
           jobId={job.id}
           defaultValues={jobToFormValues(job)}
-          staff={staff.map((s) => ({ id: s.id, name: fullName(s) }))}
           skillSuggestions={skills}
           meta={{
             displayId: job.displayId,

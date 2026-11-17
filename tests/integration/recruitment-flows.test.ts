@@ -29,19 +29,17 @@ import { resolvePermissions, SYSTEM_ROLES } from "@/modules/access-control/permi
 import { assertJobAccess } from "@/modules/access-control/scope";
 import { syncRolesAndPermissions } from "@/modules/access-control/sync";
 import { deleteRole, saveRole, setStaffUserPassword, updateStaffUser } from "@/modules/access-control/admin-service";
-import { addCandidateToJob, submitPortalApplication, updateApplicationStatus } from "@/modules/applications/service";
-import { createInternalCandidate, updateOwnProfile } from "@/modules/candidates/service";
+import { assignApplicationRecruiter, submitPortalApplication, updateApplicationStatus } from "@/modules/applications/service";
+import { updateOwnProfile } from "@/modules/candidates/service";
 import { ensureCandidateAccount } from "@/modules/auth/provisioning";
 import type { User as AuthUser } from "@supabase/supabase-js";
-import { candidateSelfProfileSchema, staffCandidateSchema } from "@/modules/candidates/schemas";
-import { EMPTY_STAFF_CANDIDATE, profileToFormValues } from "@/modules/candidates/form-values";
+import { candidateSelfProfileSchema } from "@/modules/candidates/schemas";
+import { profileToFormValues } from "@/modules/candidates/form-values";
 import { createUploadTicket } from "@/modules/documents/service";
 import { jobSchema } from "@/modules/jobs/schemas";
 import { EMPTY_JOB } from "@/modules/jobs/form-values";
 import { changeJobStatus, createJob, updateJob } from "@/modules/jobs/service";
 import { listPublicJobs } from "@/modules/jobs/queries";
-import { parseCandidateSearch } from "@/modules/search/candidate-search";
-import { searchCandidates } from "@/modules/search/service";
 import { hitRateLimit } from "@/lib/rate-limit";
 
 const enabled = !!process.env.TEST_DATABASE_URL;
@@ -65,14 +63,7 @@ async function upload(actorUserId: string, candidateId: string | null, type: "RE
 const jobInput = (overrides: Record<string, unknown> = {}) =>
   jobSchema.parse({
     ...EMPTY_JOB, title: "Senior Java Developer", description: "Build payment systems.", requiredSkills: ["Java", "Spring Boot"],
-    preferredSkills: ["AWS"], country: "CA", state: "ON", city: "Toronto", minExperience: "5", maxExperience: "8", ...overrides,
-  });
-
-const candidateInput = (overrides: Record<string, unknown> = {}) =>
-  staffCandidateSchema.parse({
-    ...EMPTY_STAFF_CANDIDATE, firstName: "Sarah", lastName: "Wilson", email: "sarah.wilson@example.com", phone: "613-555-0102",
-    country: "CA", state: "ON", city: "Ottawa", currentTitle: "Java Developer", totalExperienceYears: "7",
-    primarySkills: ["Java"], secondarySkills: ["Spring Boot", "AWS"], source: "INTERNAL_RECRUITMENT", ...overrides,
+    preferredSkills: ["AWS"], country: "CA", states: ["ON"], city: "Toronto", minExperience: "5", maxExperience: "8", ...overrides,
   });
 
 let admin: StaffContext;
@@ -196,58 +187,31 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     await expect(submitPortalApplication(candidate, { ...base, jobId: open.id, resumeChoice: "upload", resumeDocumentId: fake })).rejects.toThrow("not a valid file");
   });
 
-  it("creates internal candidates who are immediately searchable, without duplicates", async () => {
-    const resumeId = await upload(recruiterUser.id, null);
-    const created = await createInternalCandidate(recruiter, { ...candidateInput(), documentIds: [resumeId] });
-    expect(created.status).toBe("created");
-    const profile = await prisma.candidateProfile.findUniqueOrThrow({ where: { email: "sarah.wilson@example.com" } });
-    expect(profile.userId).toBeNull();
-    expect(profile.defaultResumeId).toBe(resumeId);
+  it("keeps the application snapshot after the candidate edits their profile, and assigns no recruiter automatically", async () => {
+    const job = await createJob(admin, jobInput({ title: "Snapshot Check" }));
+    await changeJobStatus(admin, job.id, "publish");
+    const candidate = await makePortalCandidate("sarah@test.dev", "Sarah");
+    const loadProfile = () =>
+      prisma.candidateProfile.findUniqueOrThrow({ where: { id: candidate.profile.id }, include: { skills: { include: { skill: true } } } });
+    await updateOwnProfile(candidate.profile.id, candidateSelfProfileSchema.parse({ ...profileToFormValues(await loadProfile()), currentTitle: "Java Developer", primarySkills: ["Java"] }));
 
-    const byKeyword = await searchCandidates(recruiter, parseCandidateSearch({ q: "Java Ottawa" }), 1);
-    expect(byKeyword.candidates.map((c) => c.id)).toContain(profile.id);
-
-    await expect(createInternalCandidate(recruiter, candidateInput())).rejects.toThrow("already exists");
-    const similar = await createInternalCandidate(recruiter, candidateInput({ email: "s.wilson@other.example" }));
-    expect(similar.status).toBe("needs-confirmation");
-  });
-
-  it("combines advanced search filters correctly", async () => {
-    await createInternalCandidate(recruiter, candidateInput({ firstName: "Junior", lastName: "Dev", email: "junior@example.com", phone: "416-555-0199", totalExperienceYears: "2" }));
-    await createInternalCandidate(recruiter, candidateInput({ firstName: "US", lastName: "Dev", email: "us@example.com", phone: "212-555-0198", country: "US", state: "NY" }));
-    await createInternalCandidate(recruiter, candidateInput({ firstName: "No", lastName: "Aws", email: "noaws@example.com", phone: "416-555-0197", secondarySkills: ["Spring Boot"] }));
-
-    const result = await searchCandidates(
-      recruiter,
-      parseCandidateSearch({ country: "CA", primarySkills: "Java", skills: "Spring Boot, AWS", minExp: "5", maxExp: "8" }),
-      1,
-    );
-    expect(result.candidates.map((c) => c.email).sort()).toEqual(["sarah.wilson@example.com"]);
-  });
-
-  it("adds an internal candidate to a job with consent, and keeps the snapshot after profile edits", async () => {
-    const job = await createJob(admin, jobInput({ title: "Internal Add", assignedRecruiterId: recruiterUser.id }));
-    const candidate = await prisma.candidateProfile.findUniqueOrThrow({ where: { email: "sarah.wilson@example.com" } });
-
-    const result = await addCandidateToJob(recruiter, {
-      jobId: job.id, candidateId: candidate.id, resumeDocumentId: candidate.defaultResumeId!,
-      consentBasis: "Confirmed by phone", consentConfirmed: true,
+    const result = await submitPortalApplication(candidate, {
+      jobId: job.id, resumeChoice: "upload", resumeDocumentId: await upload(candidate.user.id, candidate.profile.id),
+      saveAsDefaultResume: false, supportingDocumentIds: [], availability: "2 weeks", confirmAccurate: true,
     });
-    const app = await prisma.application.findUniqueOrThrow({ where: { displayId: result.displayId }, include: { folder: true, documents: true } });
-    expect(app.source).toBe("INTERNAL_RECRUITMENT");
-    expect(app.consentRecordedById).toBe(recruiterUser.id);
-    expect(app.folder?.caseFileId).toBe(job.caseFile!.id);
-    expect(app.documents[0].id).not.toBe(candidate.defaultResumeId); // separate copy
+    const app = await prisma.application.findUniqueOrThrow({ where: { displayId: result.displayId } });
+    expect(app.source).toBe("JOB_PORTAL");
+    expect(app.assignedRecruiterId).toBeNull();
 
-    const full = await prisma.candidateProfile.findUniqueOrThrow({ where: { id: candidate.id }, include: { skills: { include: { skill: true } } } });
-    await updateOwnProfile(candidate.id, candidateSelfProfileSchema.parse({ ...profileToFormValues(full), firstName: "Sara", currentTitle: "Engineering Manager" }));
+    await updateOwnProfile(candidate.profile.id, candidateSelfProfileSchema.parse({ ...profileToFormValues(await loadProfile()), firstName: "Sara", currentTitle: "Engineering Manager" }));
+    expect((await loadProfile()).firstName).toBe("Sara");
     const after = await prisma.application.findUniqueOrThrow({ where: { id: app.id } });
-    expect((after.candidateSnapshot as { firstName: string; currentTitle: string }).firstName).toBe("Sarah");
-    expect((after.candidateSnapshot as { currentTitle: string }).currentTitle).toBe("Java Developer");
+    expect(after.candidateSnapshot).toMatchObject({ firstName: "Sarah", currentTitle: "Java Developer", primarySkills: ["Java"] });
   });
 
-  it("records status changes with history", async () => {
-    const app = await prisma.application.findFirstOrThrow({ where: { source: "INTERNAL_RECRUITMENT" } });
+  it("records status changes with history (by a recruiter assigned to the application)", async () => {
+    const app = await prisma.application.findFirstOrThrow({ where: { job: { title: "Snapshot Check" } } });
+    await assignApplicationRecruiter(admin, app.id, recruiterUser.id);
     await updateApplicationStatus(recruiter, { applicationId: app.id, status: "SHORTLISTED", note: "Strong match" });
     await updateApplicationStatus(recruiter, { applicationId: app.id, status: "SUBMITTED_TO_CLIENT" });
     const history = await prisma.applicationStatusHistory.findMany({ where: { applicationId: app.id }, orderBy: { changedAt: "asc" } });
@@ -256,15 +220,17 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     await expect(updateApplicationStatus(recruiter, { applicationId: app.id, status: "SUBMITTED_TO_CLIENT" })).rejects.toThrow();
   });
 
-  it("limits recruiters to jobs they created or are assigned to", async () => {
+  it("limits recruiters to jobs they created", async () => {
     const other = await createJob(admin, jobInput({ title: "Not Yours" }));
     await expect(assertJobAccess(recruiter, other.id)).rejects.toBeInstanceOf(ForbiddenError);
     const app = await prisma.application.findFirstOrThrow({ where: { job: { title: "Portal Apply" } } });
     await expect(updateApplicationStatus(recruiter, { applicationId: app.id, status: "REJECTED" })).rejects.toBeInstanceOf(ForbiddenError);
 
-    const assigned = await createJob(admin, jobInput({ title: "Assigned Job", assignedRecruiterId: recruiterUser.id }));
-    await expect(assertJobAccess(recruiter, assigned.id)).resolves.toBeUndefined();
-    await expect(changeJobStatus(recruiter, assigned.id, "publish")).rejects.toBeInstanceOf(ForbiddenError);
+    // Job-level recruiter assignment no longer exists: only the creator (or job.view_all) sees a job.
+    const own = await createJob(admin, jobInput({ title: "Recruiter's Own Job" }));
+    await prisma.job.update({ where: { id: own.id }, data: { createdById: recruiterUser.id } });
+    await expect(assertJobAccess(recruiter, own.id)).resolves.toBeUndefined();
+    await expect(changeJobStatus(recruiter, own.id, "publish")).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   it("deletes custom roles only when unused, never built-in roles", async () => {
@@ -273,8 +239,8 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     const builtIn = await prisma.role.findUniqueOrThrow({ where: { key: "RECRUITER" } });
     await expect(deleteRole(admin, builtIn.id)).rejects.toThrow("Built-in roles cannot be deleted");
 
-    const role = await saveRole(admin, null, { name: "Temp Sourcer", permissions: ["candidate.view", "role.delete"] });
-    await expect(saveRole(admin, null, { name: "temp sourcer ", permissions: ["candidate.view"] })).rejects.toThrow("already exists");
+    const role = await saveRole(admin, null, { name: "Temp Sourcer", permissions: ["application.view", "role.delete"] });
+    await expect(saveRole(admin, null, { name: "temp sourcer ", permissions: ["application.view"] })).rejects.toThrow("already exists");
     expect(await prisma.role.count({ where: { name: { equals: "Temp Sourcer", mode: "insensitive" } } })).toBe(1);
     expect((await prisma.rolePermission.count({ where: { roleId: role.id } }))).toBe(2);
     await prisma.userRole.create({ data: { userId: recruiterUser.id, roleId: role.id } });
@@ -317,27 +283,29 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     expect(await ensureCandidateAccount(unverified)).toBeNull();
     expect(await ensureCandidateAccount(authUser({ email: "someone@test.dev", app_metadata: { provider: "email" } }))).toBeNull();
 
-    // A recruiter-added profile with the same email is linked, not duplicated.
-    await createInternalCandidate(admin, candidateInput({ firstName: "Sam", lastName: "Lee", email: "sam.lee@gmail.com", phone: "416-555-0142" }));
+    // An existing profile without a login (e.g. added by a recruiter earlier) with the same email is linked, not duplicated.
+    await prisma.candidateProfile.create({
+      data: { email: "sam.lee@gmail.com", firstName: "Sam", lastName: "Lee", phone: "+14165550142", country: "CA", source: "INTERNAL_RECRUITMENT" },
+    });
     const sam = authUser({ email: "sam.lee@gmail.com", app_metadata: { provider: "google", providers: ["google"] }, user_metadata: { name: "Sam Lee" } });
     await ensureCandidateAccount(sam);
     expect((await prisma.candidateProfile.findUniqueOrThrow({ where: { email: "sam.lee@gmail.com" } })).userId).toBe(sam.id);
     expect(await prisma.candidateProfile.count({ where: { email: "sam.lee@gmail.com" } })).toBe(1);
   });
   it("non-Super-Admins can only hand out permissions they hold themselves", async () => {
-    // A custom "people admin" role: manages users and roles, but cannot see candidates' documents.
+    // A custom "people admin" role: manages users and roles and views applications, but cannot open documents.
     const manager = await makeStaff("people.admin@test.dev", "Pat");
-    const peopleRole = await prisma.role.create({ data: { name: "People admin", permissions: { create: (await prisma.permission.findMany({ where: { code: { in: ["user.manage", "role.manage", "candidate.view"] } } })).map((p) => ({ permissionId: p.id })) } } });
+    const peopleRole = await prisma.role.create({ data: { name: "People admin", permissions: { create: (await prisma.permission.findMany({ where: { code: { in: ["user.manage", "role.manage", "application.view"] } } })).map((p) => ({ permissionId: p.id })) } } });
     await prisma.userRole.create({ data: { userId: manager.id, roleId: peopleRole.id } });
-    const permissions = resolvePermissions([["user.manage", "role.manage", "candidate.view"]]);
+    const permissions = resolvePermissions([["user.manage", "role.manage", "application.view"]]);
     const ctx: StaffContext = { user: { id: manager.id, email: manager.email, firstName: manager.firstName, lastName: manager.lastName }, permissions, roleKeys: [], roleNames: ["People admin"], isSuperAdmin: false, can: (p) => permissions.has(p) };
 
     // Cannot create or widen a role beyond its own permissions…
     await expect(saveRole(ctx, null, { name: "Escalate", permissions: ["document.view"] })).rejects.toThrow("permissions you have yourself");
-    await expect(saveRole(ctx, peopleRole.id, { name: "People admin", permissions: ["user.manage", "role.manage", "candidate.view", "job.view_all"] })).rejects.toThrow("permissions you have yourself");
+    await expect(saveRole(ctx, peopleRole.id, { name: "People admin", permissions: ["user.manage", "role.manage", "application.view", "job.view_all"] })).rejects.toThrow("permissions you have yourself");
     // …but can create a role within them.
-    const viewer = await saveRole(ctx, null, { name: "Candidate viewer", permissions: ["candidate.view"] });
-    expect(viewer.name).toBe("Candidate viewer");
+    const viewer = await saveRole(ctx, null, { name: "Application viewer", permissions: ["application.view"] });
+    expect(viewer.name).toBe("Application viewer");
 
     // Cannot give itself (or anyone) the built-in Admin role, nor change its own roles.
     const adminRole = await prisma.role.findUniqueOrThrow({ where: { key: "ADMIN" } });
@@ -350,6 +318,27 @@ describe.skipIf(!enabled)("recruitment flows (PostgreSQL)", () => {
     await prisma.userRole.delete({ where: { userId_roleId: { userId: recruiterUser.id, roleId: recruiterRole.id } } });
     // Super Admin is unaffected.
     const sa = ctxFor(await makeStaff("sa2@test.dev", "Sue"), "SUPER_ADMIN");
-    await expect(saveRole(sa, viewer.id, { name: "Candidate viewer", permissions: ["candidate.view", "document.view"] })).resolves.toBeTruthy();
+    await expect(saveRole(sa, viewer.id, { name: "Application viewer", permissions: ["application.view", "document.view"] })).resolves.toBeTruthy();
+  });
+  it("ignores permission codes removed from the catalogue that are still stored in the database", async () => {
+    // e.g. the retired candidate-module codes, until the permission sync runs.
+    const stale = await prisma.permission.create({ data: { code: "candidate.view", description: "Removed" } });
+    const known = await prisma.permission.findUniqueOrThrow({ where: { code: "application.view" } });
+    const legacy = await prisma.role.create({ data: { name: "Legacy sourcer", permissions: { create: [{ permissionId: stale.id }, { permissionId: known.id }] } } });
+
+    // A non-Super-Admin holding application.view can assign the role: the stale code grants nothing.
+    const manager = await makeStaff("legacy.manager@test.dev", "Lee");
+    const permissions = resolvePermissions([["user.manage", "application.view", "candidate.view"]]);
+    expect([...permissions].sort()).toEqual(["application.view", "user.manage"]);
+    const ctx: StaffContext = { user: { id: manager.id, email: manager.email, firstName: manager.firstName, lastName: manager.lastName }, permissions, roleKeys: [], roleNames: ["Manager"], isSuperAdmin: false, can: (p) => permissions.has(p) };
+    const target = await makeStaff("legacy.target@test.dev", "Tia");
+    await expect(updateStaffUser(ctx, { userId: target.id, firstName: "Tia", lastName: "Test", roleIds: [legacy.id] })).resolves.toBeUndefined();
+
+    // Saving the role keeps only current codes (the stale one is dropped, never re-added).
+    const sa = ctxFor(await makeStaff("sa3@test.dev", "Sid"), "SUPER_ADMIN");
+    await saveRole(sa, legacy.id, { name: "Legacy sourcer", permissions: ["application.view", "candidate.view"] });
+    const codes = await prisma.rolePermission.findMany({ where: { roleId: legacy.id }, select: { permission: { select: { code: true } } } });
+    expect(codes.map((c) => c.permission.code)).toEqual(["application.view"]);
+    await prisma.permission.delete({ where: { id: stale.id } });
   });
 });

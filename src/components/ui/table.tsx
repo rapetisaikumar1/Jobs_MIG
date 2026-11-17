@@ -1,9 +1,18 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
+/**
+ * "Scroll shadows": a soft shadow appears at the left / right edge only while there is more of
+ * the table to scroll to on that side. Pure CSS: the two card-coloured cover gradients scroll
+ * with the content (background-attachment: local) and hide the two fixed shadow gradients once
+ * an edge is reached. Tables always sit on a card, so the covers match the background.
+ */
+const scrollShadows =
+  "[background:linear-gradient(to_right,var(--card)_30%,transparent)_left_center/2.5rem_100%_no-repeat_local,linear-gradient(to_left,var(--card)_30%,transparent)_right_center/2.5rem_100%_no-repeat_local,radial-gradient(farthest-side_at_0_50%,rgb(0_0_0/0.14),transparent)_left_center/0.75rem_100%_no-repeat_scroll,radial-gradient(farthest-side_at_100%_50%,rgb(0_0_0/0.14),transparent)_right_center/0.75rem_100%_no-repeat_scroll]";
+
 export function Table({ className, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="w-full overflow-x-auto">
+    <div className={cn("relative w-full overflow-x-auto", scrollShadows)}>
       <table className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
   );

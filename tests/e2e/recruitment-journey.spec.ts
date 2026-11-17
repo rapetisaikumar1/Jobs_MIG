@@ -32,10 +32,14 @@ test("staff creates a job: Job ID and case file are generated", async ({ page })
   await page.fill("#requiredSkills", "Kotlin");
   await page.keyboard.press("Enter");
   await page.selectOption("#country", "CA");
-  await page.selectOption("#state", "ON");
+  await page.click("#states");
+  await page.getByRole("combobox", { name: "Search provinces" }).fill("Ontario");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
   await page.fill("#city", "Waterloo");
   await page.getByRole("button", { name: "Create job" }).click();
-  await expect(page).toHaveURL(/\/admin\/jobs\/MIG-JOB-\d{6}\?notice=created/);
+  // The ?notice= flag is removed from the URL once the alert has rendered.
+  await expect(page).toHaveURL(/\/admin\/jobs\/MIG-JOB-\d{6}/);
   await expect(page.getByText(/case file MIG-CF-\d{6}/)).toBeVisible();
   jobUrl = page.url().split("?")[0];
   jobId = jobUrl.split("/").pop()!;
@@ -47,6 +51,11 @@ test("staff publishes; job appears publicly with its posted date", async ({ page
   await page.goto(jobUrl);
   await page.getByRole("button", { name: "Publish job" }).click();
   await expect(page.getByText("Job status updated.")).toBeVisible();
+  // Staff never see the job portal: the shared link opens the job in the admin portal.
+  await page.goto(`/jobs/${jobId}`);
+  await expect(page).toHaveURL(new RegExp(`/admin/jobs/${jobId}$`));
+  // Signed out, the same link shows the public posting.
+  await page.context().clearCookies();
   await page.goto(`/jobs/${jobId}`);
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
   const today = new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(new Date());

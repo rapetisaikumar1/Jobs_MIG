@@ -7,7 +7,8 @@ export const siteConfig = {
   contact: {
     email: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "careers@jobs.maverickinnogarage.com",
     privacyEmail: process.env.NEXT_PUBLIC_PRIVACY_EMAIL ?? "privacy@maverickinnogarage.com",
-    phone: process.env.NEXT_PUBLIC_CONTACT_PHONE ?? "+1 (416) 555-0100",
+    // Shown only when set (no placeholder number on the live site).
+    phone: process.env.NEXT_PUBLIC_CONTACT_PHONE?.trim() || null,
     address: process.env.NEXT_PUBLIC_CONTACT_ADDRESS ?? "Toronto, Ontario, Canada",
   },
   logo: { src: "/brand/mig-logo.svg", width: 180, height: 80 },

@@ -10,8 +10,6 @@ export default function PrivacyPage() {
       <h1 className="text-3xl font-semibold tracking-tight">Privacy notice</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         This notice explains how {name} handles personal information of job seekers in the United States and Canada.
-        It is a template and must be reviewed by your legal counsel before publication; it does not by itself establish
-        compliance with PIPEDA, provincial privacy laws (e.g. Quebec Law 25, Alberta/BC PIPA) or US state privacy laws.
       </p>
 
       <div className="mt-8 space-y-8 text-[15px] leading-7">
@@ -57,7 +55,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-lg font-semibold">Contact</h2>
           <p className="mt-2">
-            {name} · {contact.address} · <a href={`mailto:${contact.privacyEmail}`} className="underline">{contact.privacyEmail}</a> · {contact.phone}
+            {name} · {contact.address} · <a href={`mailto:${contact.privacyEmail}`} className="underline">{contact.privacyEmail}</a>{contact.phone ? ` · ${contact.phone}` : ""}
           </p>
         </section>
       </div>
