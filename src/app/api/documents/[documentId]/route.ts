@@ -17,8 +17,8 @@ function deny(status: 403 | 404) {
  * Secure document access. Authorizes the caller, then redirects to a signed URL
  * that expires after 60 seconds. Files are never publicly reachable.
  *   - Candidates: only their own documents.
- *   - Staff: "document.view", plus "candidate.view" for profile documents, or
- *     "application.view" and access to the application's job for application documents.
+ *   - Staff: application documents only, with "document.view", "application.view" and
+ *     access to the application (job scope). Profile-only documents are candidate-private.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ documentId: string }> }) {
   const parsedId = uuid.safeParse((await params).documentId);
@@ -29,16 +29,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const staff = await getStaffContext();
   if (staff) {
-    if (!staff.can(PERMISSIONS.DOCUMENT_VIEW)) return deny(403);
-    if (doc.applicationId) {
-      if (!staff.can(PERMISSIONS.APPLICATION_VIEW)) return deny(403);
-      const inScope = await prisma.application.count({
-        where: { AND: [{ id: doc.applicationId }, applicationScopeWhere(staff)] },
-      });
-      if (!inScope) return deny(403);
-    } else if (!staff.can(PERMISSIONS.CANDIDATE_VIEW)) {
-      return deny(403);
-    }
+    if (!staff.can(PERMISSIONS.DOCUMENT_VIEW) || !staff.can(PERMISSIONS.APPLICATION_VIEW)) return deny(403);
+    if (!doc.applicationId) return deny(403);
+    const inScope = await prisma.application.count({
+      where: { AND: [{ id: doc.applicationId }, applicationScopeWhere(staff)] },
+    });
+    if (!inScope) return deny(403);
   } else {
     const candidate = await getCandidateContext();
     if (!candidate || doc.candidateId !== candidate.profile.id) return deny(403);

@@ -7,17 +7,22 @@ import type { ActionResult } from "@/lib/action-result";
 /**
  * Runs a server action from a button (optionally after confirmation) and shows the
  * outcome inline. Used for one-click actions like publishing a job.
+ *
+ * With `hideMessage` the outcome is not shown under the button (which would make it taller than
+ * the buttons next to it); the caller shows it from `onDone` instead.
  */
 export function ActionButton({
   action,
   confirm,
   children,
   onDone,
+  hideMessage,
   ...props
 }: Omit<ButtonProps, "onClick" | "action"> & {
   action: () => Promise<ActionResult<unknown>>;
   confirm?: string;
   onDone?: (result: ActionResult<unknown>) => void;
+  hideMessage?: boolean;
 }) {
   const [pending, startTransition] = React.useTransition();
   const [message, setMessage] = React.useState<{ ok: boolean; text: string } | null>(null);
@@ -42,7 +47,7 @@ export function ActionButton({
       >
         {pending ? "Working…" : children}
       </Button>
-      {message && (
+      {message && !hideMessage && (
         <span role="status" className={message.ok ? "text-xs text-success" : "text-xs text-destructive"}>
           {message.text}
         </span>

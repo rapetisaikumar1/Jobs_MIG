@@ -25,14 +25,15 @@ export async function SiteFooter() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Company</h2>
           <ul className="mt-4 space-y-2.5">
             <li><Link href="/privacy" className="hover:underline">Privacy policy</Link></li>
-            <li><Link href="/admin/login" className="hover:underline">Staff sign-in</Link></li>
           </ul>
         </div>
         <div className="text-sm">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</h2>
           <ul className="mt-4 space-y-2.5">
             <li className="flex items-center gap-2"><Mail className="size-4 text-muted-foreground" aria-hidden /><a href={`mailto:${siteConfig.contact.email}`} className="hover:underline">{siteConfig.contact.email}</a></li>
-            <li className="flex items-center gap-2"><Phone className="size-4 text-muted-foreground" aria-hidden /><a href={`tel:${siteConfig.contact.phone.replace(/[^+\d]/g, "")}`} className="hover:underline">{siteConfig.contact.phone}</a></li>
+            {siteConfig.contact.phone && (
+              <li className="flex items-center gap-2"><Phone className="size-4 text-muted-foreground" aria-hidden /><a href={`tel:${siteConfig.contact.phone.replace(/[^+\d]/g, "")}`} className="hover:underline">{siteConfig.contact.phone}</a></li>
+            )}
             <li className="flex items-center gap-2"><MapPin className="size-4 text-muted-foreground" aria-hidden />{siteConfig.contact.address}</li>
           </ul>
         </div>

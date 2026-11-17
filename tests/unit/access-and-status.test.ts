@@ -14,12 +14,17 @@ describe("built-in roles", () => {
   it("Recruiter works on authorized jobs only and cannot create or publish jobs", () => {
     const p = SYSTEM_ROLES.RECRUITER.permissions;
     expect(p).toContain(PERMISSIONS.APPLICATION_UPDATE_STATUS);
-    expect(p).toContain(PERMISSIONS.CANDIDATE_ADD);
+    expect(p).toContain(PERMISSIONS.CASE_FILE_VIEW);
     expect(p).not.toContain(PERMISSIONS.JOB_VIEW_ALL);
     expect(p).not.toContain(PERMISSIONS.JOB_CREATE);
   });
   it("ignores unknown permission codes", () => {
     expect([...resolvePermissions([["job.create", "made.up"]])]).toEqual(["job.create"]);
+  });
+  it("ignores removed candidate-module codes still stored in the database", () => {
+    const stale = ["candidate.view", "candidate.add", "candidate.edit", "application.create"];
+    expect([...resolvePermissions([[...stale, "application.view"]])]).toEqual(["application.view"]);
+    for (const code of stale) expect(Object.values(PERMISSIONS)).not.toContain(code);
   });
 });
 
@@ -39,6 +44,10 @@ describe("redirect safety", () => {
   it.each(["https://evil.com", "//evil.com", "/\\evil.com", ""])("rejects %s", (next) => expect(safeNextPath(next, "/x")).toBe("/x"));
   it.each(["/\t/evil.com", "/\n/evil.com", "/\r//evil.com", "/\\/evil.com", "/%09/x\u0000"])("rejects control-character bypass %j", (next) =>
     expect(safeNextPath(next, "/x")).toBe("/x"));
+  it.each(["/.//evil.com", "/%2e//evil.com", "/a/..//evil.com", "/candidate/.././/evil.com", "/admin/..//evil.com"])(
+    "rejects dot-segment bypass %s",
+    (next) => expect(safeNextPath(next, "/x")).toBe("/x"),
+  );
   it("keeps query strings", () => expect(safeNextPath("/jobs?q=java&page=2", "/x")).toBe("/jobs?q=java&page=2"));
   it("keeps relative paths", () => expect(safeNextPath("/jobs/MIG-JOB-000001/apply", "/x")).toBe("/jobs/MIG-JOB-000001/apply"));
 });
@@ -51,7 +60,7 @@ describe("permission catalogue", () => {
     for (const p of ALL_PERMISSIONS) expect(PERMISSION_DESCRIPTIONS[p]).toBeTruthy();
   });
   it("built-in Admin and Recruiter keep the actions they had", () => {
-    for (const p of [PERMISSIONS.APPLICATION_CREATE, PERMISSIONS.APPLICATION_NOTE, PERMISSIONS.APPLICATION_ASSIGN, PERMISSIONS.DOCUMENT_VIEW]) {
+    for (const p of [PERMISSIONS.APPLICATION_NOTE, PERMISSIONS.APPLICATION_ASSIGN, PERMISSIONS.DOCUMENT_VIEW]) {
       expect(SYSTEM_ROLES.ADMIN.permissions).toContain(p);
       expect(SYSTEM_ROLES.RECRUITER.permissions).toContain(p);
     }

@@ -16,7 +16,7 @@ export async function listOwnApplications(candidateId: string) {
       displayId: true,
       status: true,
       appliedAt: true,
-      job: { select: { displayId: true, title: true, status: true, city: true, state: true, country: true } },
+      job: { select: { displayId: true, title: true, status: true, city: true, state: true, states: true, country: true } },
     },
   });
 }
@@ -42,6 +42,7 @@ export async function getOwnApplication(candidateId: string, displayId: string) 
           status: true,
           city: true,
           state: true,
+          states: true,
           country: true,
           workArrangement: true,
           employmentType: true,

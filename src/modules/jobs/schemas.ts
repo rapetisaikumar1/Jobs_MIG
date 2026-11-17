@@ -13,7 +13,6 @@ import {
   optionalDate,
   optionalNumber,
   optionalText,
-  optionalUuid,
   requiredText,
   stringList,
 } from "@/lib/validation";
@@ -29,7 +28,13 @@ export const jobSchema = z
     maxExperience: optionalNumber(0, 50, { integer: true }),
     education: optionalText(1000),
     country: z.enum(["US", "CA"], { error: "Select United States or Canada" }),
-    state: requiredText("State / Province", 60),
+    // Every state / province the job is open in (at least one). The first is also stored as the
+    // single "state" column for older code.
+    states: z
+      .array(z.string().trim().max(60), { error: "Select at least one state or province" })
+      .min(1, "Select at least one state or province")
+      .max(80, "Select at most 80 states or provinces")
+      .transform((v) => [...new Set(v)]),
     city: requiredText("City", 100),
     workArrangement: z.enum(enumValues(WORK_ARRANGEMENT_LABELS), { error: "Select a work arrangement" }),
     employmentType: z.enum(enumValues(EMPLOYMENT_TYPE_LABELS), { error: "Select an employment type" }),
@@ -39,9 +44,6 @@ export const jobSchema = z
     compensationType: z.enum(enumValues(COMPENSATION_TYPE_LABELS)),
     salaryPublic: checkbox,
     applicationDeadline: optionalDate,
-    assignedRecruiterId: optionalUuid,
-    internalNotes: optionalText(5000),
-    isFeatured: checkbox,
   })
   .superRefine((v, ctx) => {
     if (v.minExperience != null && v.maxExperience != null && v.maxExperience < v.minExperience) {
@@ -50,8 +52,9 @@ export const jobSchema = z
     if (v.compensationMin != null && v.compensationMax != null && v.compensationMax < v.compensationMin) {
       ctx.addIssue({ code: "custom", path: ["compensationMax"], message: "Must be at least the minimum" });
     }
-    if (!regionsFor(v.country).some((r) => r.code === v.state)) {
-      ctx.addIssue({ code: "custom", path: ["state"], message: "Select a valid state or province" });
+    const regions = regionsFor(v.country);
+    if (!v.states.every((code) => regions.some((r) => r.code === code))) {
+      ctx.addIssue({ code: "custom", path: ["states"], message: "Select valid states or provinces for the country" });
     }
     if (v.applicationDeadline && v.applicationDeadline < openDeadlineCutoff()) {
       ctx.addIssue({ code: "custom", path: ["applicationDeadline"], message: "The deadline cannot be in the past" });

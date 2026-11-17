@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailList, TagList } from "@/components/shared/detail-list";
@@ -22,7 +21,6 @@ import {
 } from "@/config/options";
 import { formatLocation } from "@/config/locations";
 import { formatCalendarDate, formatDateTime, formatMoney, formatPhone, formatYears, fullName } from "@/lib/format";
-import { param, type SearchParams } from "@/lib/pagination";
 import { getViewerTimeZone } from "@/lib/request";
 import { requireStaff } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
@@ -37,7 +35,7 @@ function label<T extends string>(labels: Record<T, string>, v: string | null | u
 }
 
 /** Application folder: candidate, submitted snapshot, documents, status, notes and history. */
-export default async function ApplicationFolderPage({ params, searchParams }: { params: Promise<{ applicationId: string }>; searchParams: Promise<SearchParams> }) {
+export default async function ApplicationFolderPage({ params }: { params: Promise<{ applicationId: string }> }) {
   const ctx = await requireStaff(PERMISSIONS.APPLICATION_VIEW);
   // Independent lookups run together (the staff list doesn't depend on the application).
   const [app, tz, staff] = await Promise.all([
@@ -46,7 +44,6 @@ export default async function ApplicationFolderPage({ params, searchParams }: { 
     listActiveStaff(),
   ]);
   if (!app) notFound();
-  const notice = param(await searchParams, "notice");
   const snap = parseSnapshot(app.candidateSnapshot);
   const canUpdate = ctx.can(PERMISSIONS.APPLICATION_UPDATE_STATUS);
   const canAssign = ctx.can(PERMISSIONS.APPLICATION_ASSIGN);
@@ -65,7 +62,6 @@ export default async function ApplicationFolderPage({ params, searchParams }: { 
         }
         back={{ href: ctx.can(PERMISSIONS.CASE_FILE_VIEW) ? `/admin/case-files/${app.job.displayId}` : "/admin/applications", label: "Back" }}
       />
-      {notice === "created" && <Alert variant="success" className="mb-4">Application {app.displayId} created and filed in case file {app.job.caseFile?.displayId}.</Alert>}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-6">
@@ -144,9 +140,11 @@ export default async function ApplicationFolderPage({ params, searchParams }: { 
           </Card>
         </div>
 
-        <div className="space-y-6">
+        {/* Below xl this column's wrapper drops out (display: contents) so its cards join the
+            single-column grid, and the Status card moves to the top. At xl it is the sidebar. */}
+        <div className="contents xl:block xl:space-y-6">
           {(canUpdate || canAssign) && (
-            <Card>
+            <Card className="order-first xl:order-none">
               <CardHeader><CardTitle>Status</CardTitle></CardHeader>
               <CardContent className="space-y-5">
                 {canUpdate ? <StatusUpdateForm applicationId={app.id} status={app.status} /> : <div className="text-sm">Current: <ApplicationStatusBadge status={app.status} /></div>}
@@ -155,10 +153,7 @@ export default async function ApplicationFolderPage({ params, searchParams }: { 
             </Card>
           )}
           <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle>Candidate (current)</CardTitle>
-              {ctx.can(PERMISSIONS.CANDIDATE_VIEW) && <Link href={`/admin/candidates/${c.displayId}`} className="text-sm underline">Profile</Link>}
-            </CardHeader>
+            <CardHeader><CardTitle>Candidate (current)</CardTitle></CardHeader>
             <CardContent>
               <DetailList columns={1} items={[
                 { label: "Candidate ID", value: c.displayId },

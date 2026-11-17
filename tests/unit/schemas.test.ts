@@ -4,7 +4,7 @@ import { jobSchema } from "@/modules/jobs/schemas";
 import { candidateSelfProfileSchema } from "@/modules/candidates/schemas";
 import { applySchema } from "@/modules/applications/schemas";
 import { EMPTY_JOB } from "@/modules/jobs/form-values";
-import { EMPTY_STAFF_CANDIDATE } from "@/modules/candidates/form-values";
+import { EMPTY_CANDIDATE_PROFILE } from "@/modules/candidates/form-values";
 
 const uuid = "3f1c2b8e-5d4a-4c6b-9e7f-1a2b3c4d5e6f";
 
@@ -39,7 +39,7 @@ describe("sign-up verification code", () => {
 describe("job form", () => {
   const base = {
     ...EMPTY_JOB, title: "Senior Java Developer", description: "Build things", requiredSkills: ["Java"],
-    country: "CA", state: "ON", city: "Toronto",
+    country: "CA", states: ["ON"], city: "Toronto",
   };
   it("accepts a valid job and converts numbers", () => {
     const job = jobSchema.parse({ ...base, minExperience: "5", maxExperience: "8", compensationMin: "110000" });
@@ -49,7 +49,8 @@ describe("job form", () => {
   });
   it("rejects max < min, wrong province and public salary without amounts", () => {
     expect(jobSchema.safeParse({ ...base, minExperience: "8", maxExperience: "5" }).success).toBe(false);
-    expect(jobSchema.safeParse({ ...base, state: "TX" }).success).toBe(false);
+    expect(jobSchema.safeParse({ ...base, states: ["TX"] }).success).toBe(false);
+    expect(jobSchema.safeParse({ ...base, states: ["ON", "TX"] }).success).toBe(false);
     expect(jobSchema.safeParse({ ...base, salaryPublic: true }).success).toBe(false);
   });
   it("rejects an application deadline in the past", () => {
@@ -59,10 +60,22 @@ describe("job form", () => {
   it("requires at least one required skill", () => {
     expect(jobSchema.safeParse({ ...base, requiredSkills: [] }).success).toBe(false);
   });
+  it("accepts several states / provinces, de-duplicated, and requires at least one", () => {
+    expect(jobSchema.parse({ ...base, states: ["ON", "BC", "ON"] }).states).toEqual(["ON", "BC"]);
+    const empty = jobSchema.safeParse({ ...base, states: [] });
+    expect(empty.success).toBe(false);
+    expect(empty.error?.issues.some((i) => i.path[0] === "states")).toBe(true);
+  });
+  it("no longer carries the retired internal / featured fields", () => {
+    const job = jobSchema.parse({ ...base, assignedRecruiterId: "x", internalNotes: "y", isFeatured: true } as never);
+    expect(job).not.toHaveProperty("assignedRecruiterId");
+    expect(job).not.toHaveProperty("internalNotes");
+    expect(job).not.toHaveProperty("isFeatured");
+  });
 });
 
 describe("candidate profile", () => {
-  const base = { ...EMPTY_STAFF_CANDIDATE, firstName: "Sarah", lastName: "Wilson", phone: "613-555-0102", country: "CA", state: "ON" };
+  const base = { ...EMPTY_CANDIDATE_PROFILE, firstName: "Sarah", lastName: "Wilson", phone: "613-555-0102", country: "CA", state: "ON" };
   it("validates Canadian postal codes and US ZIP codes", () => {
     expect(candidateSelfProfileSchema.safeParse({ ...base, postalCode: "K1A 0B1" }).success).toBe(true);
     expect(candidateSelfProfileSchema.safeParse({ ...base, postalCode: "12345" }).success).toBe(false);
@@ -92,7 +105,7 @@ describe("server re-validation of client-parsed values", () => {
   // React Hook Form passes transformed output to the server action, which parses it again.
   it("job form output parses again (dates, numbers)", () => {
     const once = jobSchema.parse({
-      ...EMPTY_JOB, title: "Dev", description: "x", requiredSkills: ["Go"], country: "CA", state: "ON", city: "Toronto",
+      ...EMPTY_JOB, title: "Dev", description: "x", requiredSkills: ["Go"], country: "CA", states: ["ON"], city: "Toronto",
       minExperience: "3", applicationDeadline: "2026-11-30",
     });
     expect(once.applicationDeadline).toBeInstanceOf(Date);
@@ -102,7 +115,7 @@ describe("server re-validation of client-parsed values", () => {
   });
   it("candidate profile output parses again (dates, phone)", () => {
     const once = candidateSelfProfileSchema.parse({
-      ...EMPTY_STAFF_CANDIDATE, firstName: "A", lastName: "B", phone: "(416) 555-0100", country: "CA", availableFrom: "2026-12-01",
+      ...EMPTY_CANDIDATE_PROFILE, firstName: "A", lastName: "B", phone: "(416) 555-0100", country: "CA", availableFrom: "2026-12-01",
     });
     const twice = candidateSelfProfileSchema.parse(once);
     expect(twice.availableFrom?.toISOString()).toBe("2026-12-01T00:00:00.000Z");

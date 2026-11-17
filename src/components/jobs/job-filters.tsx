@@ -26,8 +26,9 @@ export function JobFilterSidebar({ filters, skills }: { filters: PublicJobFilter
   const any = !!(filters.q || filters.location || filters.country || filters.workArrangement || filters.employmentType || skills);
   return (
     <div className="rounded-xl border bg-card p-4 shadow-xs">
-      <div className="mb-4 flex items-center justify-between">
-        <p className="flex items-center gap-2 text-sm font-semibold"><SlidersHorizontal className="size-4" aria-hidden /> Filters</p>
+      <div className={any ? "mb-4 flex items-center justify-between" : "mb-4 hidden items-center justify-between lg:flex"}>
+        {/* Below lg the "Show / Hide filters" toggle already labels this panel. */}
+        <p className="hidden items-center gap-2 text-sm font-semibold lg:flex"><SlidersHorizontal className="size-4" aria-hidden /> Filters</p>
         {any && <Link href="/jobs" className="text-xs font-medium text-muted-foreground hover:text-foreground">Clear all</Link>}
       </div>
       <div className="space-y-5">

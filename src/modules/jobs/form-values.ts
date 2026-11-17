@@ -1,4 +1,5 @@
 import type { Job, JobSkill, Skill } from "@prisma/client";
+import { jobStates } from "@/config/locations";
 import { decimalToNumber, toDateInputValue } from "@/lib/format";
 import type { JobFormValues } from "@/modules/jobs/schemas";
 
@@ -14,7 +15,7 @@ export const EMPTY_JOB: JobFormValues = {
   maxExperience: "",
   education: "",
   country: "US",
-  state: "",
+  states: [],
   city: "",
   workArrangement: "HYBRID",
   employmentType: "FULL_TIME",
@@ -24,12 +25,12 @@ export const EMPTY_JOB: JobFormValues = {
   compensationType: "ANNUAL",
   salaryPublic: false,
   applicationDeadline: "",
-  assignedRecruiterId: "",
-  internalNotes: "",
-  isFeatured: false,
 };
 
-export function jobToFormValues(job: Job & { skills: (JobSkill & { skill: Skill })[] }): JobFormValues {
+/** Retired job columns that are no longer read (see prisma/schema.prisma). */
+type RetiredJobFields = "isFeatured" | "assignedRecruiterId" | "internalNotes";
+
+export function jobToFormValues(job: Omit<Job, RetiredJobFields> & { skills: (JobSkill & { skill: Skill })[] }): JobFormValues {
   return {
     title: job.title,
     description: job.description,
@@ -40,7 +41,7 @@ export function jobToFormValues(job: Job & { skills: (JobSkill & { skill: Skill 
     maxExperience: str(job.maxExperience),
     education: str(job.education),
     country: job.country === "CA" ? "CA" : "US",
-    state: job.state,
+    states: jobStates(job),
     city: job.city,
     workArrangement: job.workArrangement,
     employmentType: job.employmentType,
@@ -50,8 +51,5 @@ export function jobToFormValues(job: Job & { skills: (JobSkill & { skill: Skill 
     compensationType: job.compensationType,
     salaryPublic: job.salaryPublic,
     applicationDeadline: toDateInputValue(job.applicationDeadline),
-    assignedRecruiterId: str(job.assignedRecruiterId),
-    internalNotes: str(job.internalNotes),
-    isFeatured: job.isFeatured,
   };
 }

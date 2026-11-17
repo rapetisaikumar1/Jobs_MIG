@@ -13,5 +13,9 @@ export function safeNextPath(next: string | null | undefined, fallback: string):
     return fallback;
   }
   if (url.origin !== base) return fallback;
-  return `${url.pathname}${url.search}${url.hash}`;
+  const out = `${url.pathname}${url.search}${url.hash}`;
+  // Dot segments collapse during parsing ("/.//evil.com" -> "//evil.com"), which a browser would
+  // read as another host. Re-check the result, not just the input.
+  if (out.startsWith("//") || out.startsWith("/\\")) return fallback;
+  return out;
 }

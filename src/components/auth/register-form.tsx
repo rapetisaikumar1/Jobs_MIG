@@ -18,7 +18,8 @@ import { registerAction } from "@/modules/auth/actions";
 
 type Values = z.input<typeof registerSchema>;
 
-export function RegisterForm() {
+/** `next`: a job-portal path to continue to after sign-up (e.g. the apply page of a shared job). */
+export function RegisterForm({ next }: { next?: string }) {
   const [error, setError] = React.useState<string | null>(null);
   // After the form is submitted: the email address waiting for its verification code.
   const [pendingEmail, setPendingEmail] = React.useState<string | null>(null);
@@ -31,18 +32,18 @@ export function RegisterForm() {
 
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
-    const result = await registerAction(values);
+    const result = await registerAction(values, next);
     if (!result.ok) {
       setError(result.error);
       applyServerErrors(result, setFieldError);
     } else setPendingEmail(values.email.trim().toLowerCase());
   });
 
-  if (pendingEmail) return <VerifyCodeForm email={pendingEmail} onBack={() => setPendingEmail(null)} />;
+  if (pendingEmail) return <VerifyCodeForm email={pendingEmail} next={next} onBack={() => setPendingEmail(null)} />;
 
   return (
     <>
-      <GoogleButton label="Sign up with Google" />
+      <GoogleButton label="Sign up with Google" next={next} />
       <p className="mt-2 text-center text-xs text-muted-foreground">
         By continuing with Google you agree to our{" "}
         <Link href="/privacy" target="_blank" className="underline">privacy notice</Link>.

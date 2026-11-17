@@ -7,7 +7,7 @@ import { DetailList } from "@/components/shared/detail-list";
 import { ApplicationStatusBadge } from "@/components/shared/status-badges";
 import { DocumentList } from "@/components/documents/document-list";
 import { EMPLOYMENT_TYPE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
-import { formatLocation } from "@/config/locations";
+import { formatJobLocation, jobStates } from "@/config/locations";
 import { formatDateTime, formatYears } from "@/lib/format";
 import { param, type SearchParams } from "@/lib/pagination";
 import { getViewerTimeZone } from "@/lib/request";
@@ -43,7 +43,7 @@ export default async function CandidateApplicationPage({
           <Link href="/candidate/applications" className="text-sm text-muted-foreground hover:text-foreground">← My applications</Link>
           <h2 className="mt-1 text-xl font-semibold">{app.job.title}</h2>
           <p className="text-sm text-muted-foreground">
-            {app.displayId} · {app.job.displayId} · {formatLocation(app.job.city, app.job.state, app.job.country)}
+            {app.displayId} · {app.job.displayId} · {formatJobLocation(app.job.city, jobStates(app.job), app.job.country)}
           </p>
         </div>
         <ApplicationStatusBadge status={app.status} audience="candidate" />

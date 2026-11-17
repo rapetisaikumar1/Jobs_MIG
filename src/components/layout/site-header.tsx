@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Logo } from "@/components/shared/logo";
+import { MobileMenu } from "@/components/layout/mobile-menu";
 import { Avatar } from "@/components/shared/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { getAppUser, getAuthUser } from "@/modules/auth/session";
@@ -10,15 +11,16 @@ async function getViewer() {
   const user = await getAuthUser().catch(() => null);
   if (!user) return null;
   const appUser = await getAppUser(user.id); // same request-scoped lookup the candidate pages use
-  return { type: appUser?.type ?? "CANDIDATE", name: appUser ? `${appUser.firstName} ${appUser.lastName}` : (user.email ?? "") };
+  // Staff never see the job portal (the layouts redirect them); never show them a signed-in header.
+  if (appUser?.type === "STAFF") return null;
+  return { name: appUser ? `${appUser.firstName} ${appUser.lastName}` : (user.email ?? "") };
 }
 
 export async function SiteHeader() {
   const viewer = await getViewer();
   const navLinks = [
     { href: "/jobs", label: "Find jobs" },
-    ...(viewer?.type === "CANDIDATE" ? [{ href: "/candidate/dashboard", label: "My account" }] : []),
-    ...(viewer?.type === "STAFF" ? [{ href: "/admin/jobs", label: "Admin portal" }] : []),
+    ...(viewer ? [{ href: "/candidate/dashboard", label: "My account" }] : []),
   ];
 
   const signOut = (
@@ -43,7 +45,7 @@ export async function SiteHeader() {
         <div className="ml-auto hidden items-center gap-2 md:flex">
           {viewer ? (
             <>
-              <Link href={viewer.type === "STAFF" ? "/admin/jobs" : "/candidate/profile"} className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-medium hover:bg-muted" title="My profile">
+              <Link href="/candidate/profile" className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-medium hover:bg-muted" title="My profile">
                 <Avatar name={viewer.name} size="sm" />
                 <span className="max-w-36 truncate">{viewer.name.split(" ")[0]}</span>
               </Link>
@@ -60,7 +62,7 @@ export async function SiteHeader() {
             </>
           )}
         </div>
-        <details className="relative ml-auto md:hidden">
+        <MobileMenu className="relative ml-auto md:hidden">
           <summary className={buttonVariants({ variant: "outline", size: "icon" }) + " list-none"} aria-label="Open menu">
             <Menu />
           </summary>
@@ -76,7 +78,7 @@ export async function SiteHeader() {
                 {link.label}
               </Link>
             ))}
-            {viewer?.type === "CANDIDATE" && (
+            {viewer && (
               <Link href="/candidate/profile" className="rounded-md px-3 py-2 text-sm hover:bg-muted">Profile &amp; documents</Link>
             )}
             <div className="mt-1 flex flex-col gap-2 border-t pt-2">
@@ -88,7 +90,7 @@ export async function SiteHeader() {
               )}
             </div>
           </div>
-        </details>
+        </MobileMenu>
       </div>
     </header>
   );

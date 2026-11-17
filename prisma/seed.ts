@@ -100,14 +100,14 @@ type JobSeed = {
   wa: "REMOTE" | "HYBRID" | "ONSITE"; et: "FULL_TIME" | "CONTRACT" | "PART_TIME"; min: number; max: number;
   pay: [number, number]; currency: "USD" | "CAD"; type: "ANNUAL" | "HOURLY"; public: boolean;
   required: string[]; preferred: string[]; status: "DRAFT" | "PUBLISHED" | "CLOSED"; posted: number | null;
-  deadline: number | null; recruiter: string; featured?: boolean;
+  deadline: number | null; recruiter: string;
 };
 
 const JOBS: JobSeed[] = [
-  { key: "java-tor", title: "Senior Java Developer", country: "CA", state: "ON", city: "Toronto", wa: "HYBRID", et: "FULL_TIME", min: 5, max: 8, pay: [110000, 130000], currency: "CAD", type: "ANNUAL", public: true, required: ["Java", "Spring Boot", "AWS"], preferred: ["Kafka", "Kubernetes"], status: "PUBLISHED", posted: 4, deadline: 27, recruiter: "emma", featured: true },
-  { key: "data-aus", title: "Data Engineer", country: "US", state: "TX", city: "Austin", wa: "REMOTE", et: "CONTRACT", min: 4, max: 7, pay: [75, 90], currency: "USD", type: "HOURLY", public: true, required: ["Python", "SQL", "Azure"], preferred: ["Databricks", "Airflow"], status: "PUBLISHED", posted: 2, deadline: 30, recruiter: "marcus", featured: true },
+  { key: "java-tor", title: "Senior Java Developer", country: "CA", state: "ON", city: "Toronto", wa: "HYBRID", et: "FULL_TIME", min: 5, max: 8, pay: [110000, 130000], currency: "CAD", type: "ANNUAL", public: true, required: ["Java", "Spring Boot", "AWS"], preferred: ["Kafka", "Kubernetes"], status: "PUBLISHED", posted: 4, deadline: 27, recruiter: "emma" },
+  { key: "data-aus", title: "Data Engineer", country: "US", state: "TX", city: "Austin", wa: "REMOTE", et: "CONTRACT", min: 4, max: 7, pay: [75, 90], currency: "USD", type: "HOURLY", public: true, required: ["Python", "SQL", "Azure"], preferred: ["Databricks", "Airflow"], status: "PUBLISHED", posted: 2, deadline: 30, recruiter: "marcus" },
   { key: "devops-van", title: "Cloud DevOps Engineer", country: "CA", state: "BC", city: "Vancouver", wa: "HYBRID", et: "FULL_TIME", min: 3, max: 6, pay: [105000, 125000], currency: "CAD", type: "ANNUAL", public: false, required: ["Terraform", "AWS", "Kubernetes"], preferred: ["Python", "GitHub Actions"], status: "PUBLISHED", posted: 9, deadline: null, recruiter: "emma" },
-  { key: "react-ny", title: "React Frontend Developer", country: "US", state: "NY", city: "New York", wa: "REMOTE", et: "FULL_TIME", min: 3, max: 6, pay: [120000, 145000], currency: "USD", type: "ANNUAL", public: true, required: ["React", "TypeScript"], preferred: ["Next.js", "GraphQL"], status: "PUBLISHED", posted: 12, deadline: 18, recruiter: "aisha", featured: true },
+  { key: "react-ny", title: "React Frontend Developer", country: "US", state: "NY", city: "New York", wa: "REMOTE", et: "FULL_TIME", min: 3, max: 6, pay: [120000, 145000], currency: "USD", type: "ANNUAL", public: true, required: ["React", "TypeScript"], preferred: ["Next.js", "GraphQL"], status: "PUBLISHED", posted: 12, deadline: 18, recruiter: "aisha" },
   { key: "net-cal", title: ".NET Developer (Contract)", country: "CA", state: "AB", city: "Calgary", wa: "ONSITE", et: "CONTRACT", min: 5, max: 10, pay: [80, 95], currency: "CAD", type: "HOURLY", public: true, required: ["C#", ".NET", "SQL Server"], preferred: ["Azure"], status: "PUBLISHED", posted: 20, deadline: 10, recruiter: "emma" },
   { key: "qa-chi", title: "QA Automation Engineer", country: "US", state: "IL", city: "Chicago", wa: "HYBRID", et: "FULL_TIME", min: 2, max: 5, pay: [90000, 110000], currency: "USD", type: "ANNUAL", public: false, required: ["Selenium", "Java"], preferred: ["Cypress", "Playwright"], status: "PUBLISHED", posted: 6, deadline: null, recruiter: "aisha" },
   { key: "sf-mtl", title: "Salesforce Developer", country: "CA", state: "QC", city: "Montreal", wa: "HYBRID", et: "FULL_TIME", min: 3, max: 6, pay: [95000, 115000], currency: "CAD", type: "ANNUAL", public: false, required: ["Salesforce", "Apex"], preferred: ["LWC"], status: "DRAFT", posted: null, deadline: null, recruiter: "emma" },
@@ -187,12 +187,11 @@ async function main() {
           description: `Our client is hiring a ${j.title} to join a growing technology team in ${j.city}. You will design, build and support production systems, collaborate with product and engineering partners, and help raise the bar for quality and reliability.`,
           responsibilities: ["Design, develop and test production-grade software", "Collaborate in an agile team with product, QA and DevOps", "Participate in code reviews and technical design", "Troubleshoot and resolve production issues"].join("\n"),
           minExperience: j.min, maxExperience: j.max, education: "Bachelor's degree in Computer Science or equivalent experience",
-          country: j.country, state: j.state, city: j.city, workArrangement: j.wa, employmentType: j.et,
+          country: j.country, state: j.state, states: [j.state], city: j.city, workArrangement: j.wa, employmentType: j.et,
           compensationMin: j.pay[0], compensationMax: j.pay[1], currency: j.currency, compensationType: j.type, salaryPublic: j.public,
-          applicationDeadline: j.deadline != null ? dateIn(j.deadline) : null, isFeatured: !!j.featured,
+          applicationDeadline: j.deadline != null ? dateIn(j.deadline) : null,
           status: j.status, publishedAt: j.posted != null ? daysAgo(j.posted) : null, closedAt: j.status === "CLOSED" ? daysAgo(5) : null,
-          createdAt: daysAgo((j.posted ?? 0) + 2), assignedRecruiterId: staff[j.recruiter], createdById: staff.ops,
-          internalNotes: "Client prefers candidates who can start within 30 days.",
+          createdAt: daysAgo((j.posted ?? 0) + 2), createdById: staff.ops,
           caseFile: { create: {} },
         },
         include: { caseFile: true },

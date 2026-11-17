@@ -18,15 +18,19 @@ const RESEND_COOLDOWN_SECONDS = 60;
 
 /**
  * Second step of sign-up: the candidate types the code from the verification email.
- * On success the server action signs them in and redirects to their profile.
+ * On success the server action signs them in and redirects to `next` (e.g. the apply page of a
+ * shared job) or, without one, to their profile.
  */
 export function VerifyCodeForm({
   email,
+  next,
   onBack,
   backLabel = "Use a different email",
   initialCooldown = RESEND_COOLDOWN_SECONDS,
 }: {
   email: string;
+  /** Job-portal path to continue to after verification (validated again on the server). */
+  next?: string;
   onBack?: () => void;
   backLabel?: string;
   /** Seconds before "Resend code" is enabled (0 when no code was just sent). */
@@ -48,7 +52,7 @@ export function VerifyCodeForm({
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
     setNotice(null);
-    const result = await verifyEmailCodeAction(values);
+    const result = await verifyEmailCodeAction(values, next);
     // On success the action redirects; we only get here on failure.
     if (result && !result.ok) {
       setError(result.error);

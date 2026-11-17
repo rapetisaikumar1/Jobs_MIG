@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/prisma";
 import { safeNextPath } from "@/modules/auth/redirects";
 
 /**
@@ -16,13 +17,24 @@ export async function GET(request: NextRequest) {
   const next = safeNextPath(searchParams.get("next"), "/candidate/dashboard");
 
   const supabase = await createSupabaseServerClient();
-  let ok = false;
+  let userId: string | undefined;
   if (tokenHash && type) {
-    ok = !(await supabase.auth.verifyOtp({ type, token_hash: tokenHash })).error;
+    const { data, error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
+    if (!error) userId = data.user?.id;
   } else if (code) {
-    ok = !(await supabase.auth.exchangeCodeForSession(code)).error;
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) userId = data.user?.id;
   }
 
-  if (!ok) return NextResponse.redirect(new URL("/login?error=link", origin));
+  if (!userId) return NextResponse.redirect(new URL("/login?error=link", origin));
+
+  // Staff links (password recovery, invitations) finish on the admin portal, never the job portal.
+  if (!next.startsWith("/admin/")) {
+    const appUser = await prisma.user.findUnique({ where: { id: userId }, select: { type: true } });
+    if (appUser?.type === "STAFF") {
+      const isPasswordLink = type === "recovery" || type === "invite" || next.startsWith("/reset-password");
+      return NextResponse.redirect(new URL(isPasswordLink ? "/admin/reset-password" : "/admin/jobs", origin));
+    }
+  }
   return NextResponse.redirect(new URL(next, origin));
 }

@@ -58,7 +58,7 @@ export function LiveJobSearch({ q, location }: { q?: string; location?: string }
   const field = "h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/80";
   return (
     <div className="flex flex-col gap-2 rounded-xl border bg-card p-2 shadow-sm sm:flex-row sm:items-center sm:gap-0">
-      <label className="flex flex-1 items-center gap-2 px-3">
+      <label className="flex flex-1 items-center gap-2 rounded-lg px-3 focus-within:ring-2 focus-within:ring-ring/40">
         {pending ? <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden /> : <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
         <input
           name="q"
@@ -76,7 +76,7 @@ export function LiveJobSearch({ q, location }: { q?: string; location?: string }
         )}
       </label>
       <span className="hidden h-7 w-px bg-border sm:block" aria-hidden />
-      <label className="flex flex-1 items-center gap-2 px-3">
+      <label className="flex flex-1 items-center gap-2 rounded-lg px-3 focus-within:ring-2 focus-within:ring-ring/40">
         <MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <input
           name="location"

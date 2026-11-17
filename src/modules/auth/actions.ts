@@ -7,6 +7,8 @@ import { serverEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, enforceRateLimit, recordIpHit, reserveSubjectAttempt } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { isStaffSession, STAFF_PORTAL } from "@/modules/auth/portal";
 import { ensureCandidateAccount, type CandidateSignupMetadata } from "@/modules/auth/provisioning";
 import { safeNextPath } from "@/modules/auth/redirects";
 import {
@@ -20,7 +22,34 @@ import type { z } from "zod";
 
 const confirmUrl = (next: string) => `${serverEnv.siteUrl}/auth/confirm?next=${encodeURIComponent(next)}`;
 
-export async function registerAction(values: z.input<typeof registerSchema>): Promise<ActionResult> {
+/** Shown when a staff login is used on the job portal. Staff sign in only through the admin portal. */
+const STAFF_ON_JOB_PORTAL = "This is a MaverickInnogarage staff account. Staff accounts can't sign in to the job portal; please use the admin portal sign-in.";
+
+/**
+ * Marks the login as staff in Supabase app_metadata (only the service-role key can write it) so
+ * the middleware can keep staff on the admin portal without a database lookup, then refreshes the
+ * session so the new access token carries the mark. Best effort: the job-portal layout performs
+ * the same check against the database, so a failure here never blocks the sign-in.
+ */
+async function stampStaffSession(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, user: { id: string; app_metadata?: unknown }) {
+  if (isStaffSession(user.app_metadata)) return;
+  try {
+    const { error } = await supabaseAdmin().auth.admin.updateUserById(user.id, { app_metadata: { portal: STAFF_PORTAL } });
+    if (error) throw error;
+    await supabase.auth.refreshSession();
+  } catch (error) {
+    console.error("[auth] could not mark staff session", error);
+  }
+}
+
+/** Where a candidate goes after sign-up: a job-portal ?next= path (never /admin), else the profile. */
+function candidateNext(next: string | undefined): string {
+  const fallback = "/candidate/profile?welcome=1";
+  const cleaned = safeNextPath(next, fallback);
+  return cleaned === "/admin" || cleaned.startsWith("/admin/") ? fallback : cleaned;
+}
+
+export async function registerAction(values: z.input<typeof registerSchema>, next?: string): Promise<ActionResult> {
   return runAction(async () => {
     const parsed = registerSchema.safeParse(values);
     if (!parsed.success) return validationFailure(parsed.error);
@@ -38,7 +67,7 @@ export async function registerAction(values: z.input<typeof registerSchema>): Pr
     const { error } = await supabase.auth.signUp({
       email: input.email,
       password: input.password,
-      options: { emailRedirectTo: confirmUrl("/candidate/profile?welcome=1"), data: metadata },
+      options: { emailRedirectTo: confirmUrl(candidateNext(next)), data: metadata },
     });
     if (error) {
       if (error.code === "weak_password") return fail("Please choose a stronger password.");
@@ -53,7 +82,7 @@ export async function registerAction(values: z.input<typeof registerSchema>): Pr
  * Completes sign-up: checks the one-time code from the verification email. On success
  * Supabase confirms the email and starts a session, and the candidate account is created.
  */
-export async function verifyEmailCodeAction(values: z.input<typeof verifyEmailCodeSchema>): Promise<ActionResult> {
+export async function verifyEmailCodeAction(values: z.input<typeof verifyEmailCodeSchema>, next?: string): Promise<ActionResult> {
   const result = await runAction(async () => {
     const parsed = verifyEmailCodeSchema.safeParse(values);
     if (!parsed.success) return validationFailure(parsed.error);
@@ -69,13 +98,16 @@ export async function verifyEmailCodeAction(values: z.input<typeof verifyEmailCo
     }
 
     const appUser = await prisma.user.findUnique({ where: { id: data.user.id }, select: { type: true } });
-    if (appUser?.type === "STAFF") return ok("/admin/jobs");
+    if (appUser?.type === "STAFF") {
+      await supabase.auth.signOut({ scope: "local" });
+      return fail(STAFF_ON_JOB_PORTAL);
+    }
     const account = await ensureCandidateAccount(data.user);
     if (!account || !account.isActive) {
       await supabase.auth.signOut({ scope: "local" });
       return fail("This account cannot sign in to the job portal. Please contact us.");
     }
-    return ok("/candidate/profile?welcome=1");
+    return ok(candidateNext(next));
   });
   if (!result.ok) return result;
   redirect(result.data);
@@ -116,10 +148,15 @@ export async function loginAction(
         await supabase.auth.signOut({ scope: "local" });
         return fail("This sign-in is for MaverickInnogarage staff only.");
       }
+      await stampStaffSession(supabase, data.user);
       return ok("/admin/jobs");
     }
 
-    if (appUser?.type === "STAFF") return ok("/admin/jobs");
+    // The job portal is for candidates only; staff must use the admin sign-in.
+    if (appUser?.type === "STAFF") {
+      await supabase.auth.signOut({ scope: "local" });
+      return fail(STAFF_ON_JOB_PORTAL);
+    }
     const account = await ensureCandidateAccount(data.user);
     if (!account || !account.isActive) {
       await supabase.auth.signOut({ scope: "local" });
@@ -131,8 +168,10 @@ export async function loginAction(
 
   // Honour ?next= only within the portal the user actually belongs to.
   const fallback = result.data;
-  const nextAllowed = fallback.startsWith("/admin") ? next?.startsWith("/admin") : !next?.startsWith("/admin");
-  redirect(nextAllowed ? safeNextPath(next, fallback) : fallback);
+  const cleaned = safeNextPath(next, fallback);
+  const isAdminPath = (path: string) => path === "/admin" || path.startsWith("/admin/");
+  // Compare the cleaned path, so "/admin/..//x" style input can't slip past the portal check.
+  redirect(isAdminPath(fallback) === isAdminPath(cleaned) ? cleaned : fallback);
 }
 
 export async function logoutAction(portal: "candidate" | "staff" = "candidate") {
@@ -182,7 +221,11 @@ export async function resetPasswordAction(values: z.input<typeof resetPasswordSc
       return fail(error.code === "same_password" ? "Choose a password you haven't used before." : "Could not update your password.");
     }
     const appUser = await prisma.user.findUnique({ where: { id: data.user.id }, select: { type: true } });
-    return ok(appUser?.type === "STAFF" ? "/admin/jobs" : "/candidate/dashboard");
+    if (appUser?.type === "STAFF") {
+      await stampStaffSession(supabase, data.user);
+      return ok("/admin/jobs");
+    }
+    return ok("/candidate/dashboard");
   });
   if (!result.ok) return result;
   redirect(result.data);

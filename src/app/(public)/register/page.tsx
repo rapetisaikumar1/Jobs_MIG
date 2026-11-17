@@ -3,12 +3,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/auth/auth-card";
 import { RegisterForm } from "@/components/auth/register-form";
+import { param, type SearchParams } from "@/lib/pagination";
+import { safeNextPath } from "@/modules/auth/redirects";
 import { getAuthUser } from "@/modules/auth/session";
 
 export const metadata: Metadata = { title: "Create an account" };
 
-export default async function RegisterPage() {
-  if (await getAuthUser()) redirect("/candidate/dashboard");
+export default async function RegisterPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  // Where to continue after sign-up, e.g. /jobs/MIG-JOB-000123/apply from a shared job link.
+  // Only job-portal paths: never the admin portal.
+  const rawNext = param(await searchParams, "next");
+  const next = rawNext && !rawNext.startsWith("/admin") ? safeNextPath(rawNext, "") || undefined : undefined;
+  if (await getAuthUser()) redirect(next ?? "/candidate/dashboard");
   return (
     <AuthCard
       withBenefits
@@ -17,13 +23,13 @@ export default async function RegisterPage() {
       footer={
         <>
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-foreground underline">
+          <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"} className="font-medium text-foreground underline">
             Sign in
           </Link>
         </>
       }
     >
-      <RegisterForm />
+      <RegisterForm next={next} />
     </AuthCard>
   );
 }

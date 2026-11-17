@@ -6,12 +6,12 @@ import type { StaffContext } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
 
 /**
- * Jobs a staff member may work on. Users without "job.view_all" see jobs they
- * created and jobs assigned to them.
+ * Jobs a staff member may work on. Users without "job.view_all" see only the jobs
+ * they created.
  */
 export function jobScopeWhere(ctx: StaffContext): Prisma.JobWhereInput {
   if (ctx.can(PERMISSIONS.JOB_VIEW_ALL)) return {};
-  return { OR: [{ assignedRecruiterId: ctx.user.id }, { createdById: ctx.user.id }] };
+  return { createdById: ctx.user.id };
 }
 
 /** Applications on in-scope jobs, plus applications assigned directly to the user. */

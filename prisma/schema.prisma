@@ -218,7 +218,9 @@ model Job {
   maxExperience       Int?             @map("max_experience")
   education           String?
   country             Country
+  // First selected state / province (kept for older code); the full list is in "states".
   state               String
+  states              String[]         @default([])
   city                String
   workArrangement     WorkArrangement  @map("work_arrangement")
   employmentType      EmploymentType   @map("employment_type")
@@ -228,6 +230,8 @@ model Job {
   compensationType    CompensationType @default(ANNUAL) @map("compensation_type")
   salaryPublic        Boolean          @default(false) @map("salary_public")
   applicationDeadline DateTime?        @map("application_deadline") @db.Date
+  // isFeatured, assignedRecruiterId and internalNotes are no longer used by the app. The columns
+  // stay so older deployments sharing the database keep working; drop them in a later migration.
   isFeatured          Boolean          @default(false) @map("is_featured")
   status              JobStatus        @default(DRAFT)
   assignedRecruiterId String?          @map("assigned_recruiter_id") @db.Uuid
@@ -248,10 +252,11 @@ model Job {
   @@index([status, publishedAt(sort: Desc)])
   @@index([assignedRecruiterId])
   @@index([country, state])
+  @@index([states], type: Gin)
   @@index([workArrangement])
   @@index([employmentType])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "jobs_title_trgm_idx")
-  @@index([createdById]) // job scope: "created by me OR assigned to me"
+  @@index([createdById]) // job scope: "created by me"
   @@index([createdAt(sort: Desc)]) // admin jobs list order
   @@index([displayId(ops: raw("gin_trgm_ops"))], type: Gin, map: "jobs_display_id_trgm_idx")
   @@index([city(ops: raw("gin_trgm_ops"))], type: Gin, map: "jobs_city_trgm_idx")

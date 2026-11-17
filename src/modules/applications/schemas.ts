@@ -23,21 +23,6 @@ export const applySchema = z
     message: "Upload a resume",
   });
 
-export const addCandidateToJobSchema = z.object({
-  jobId: uuid,
-  candidateId: uuid,
-  /** An active resume from the candidate's profile, or a pending upload by the recruiter. */
-  resumeDocumentId: uuid.or(z.literal("")).refine((v) => v !== "", "Select or upload a resume"),
-  relevantExperienceYears: optionalNumber(0, 60),
-  relevantExperienceSummary: optionalText(2000),
-  availability: optionalText(200),
-  workAuthorizationResponse: optionalText(300),
-  consentBasis: requiredText("Consent / representation basis", 1000),
-  consentConfirmed: z.literal(true, { error: "Confirm you have the candidate's consent to represent them" }),
-  assignedRecruiterId: optionalUuid,
-  note: optionalText(5000),
-});
-
 export const statusUpdateSchema = z.object({
   applicationId: uuid,
   status: z.enum(enumValues(APPLICATION_STATUS_LABELS)),
@@ -56,5 +41,3 @@ export const assignRecruiterSchema = z.object({
 
 export type ApplyInput = z.output<typeof applySchema>;
 export type ApplyFormValues = z.input<typeof applySchema>;
-export type AddCandidateToJobInput = z.output<typeof addCandidateToJobSchema>;
-export type AddCandidateToJobFormValues = z.input<typeof addCandidateToJobSchema>;

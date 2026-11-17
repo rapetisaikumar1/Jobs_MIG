@@ -6,7 +6,12 @@ import "server-only";
  * expire after `ttlMs`; writers call invalidateCache(prefix) so changes show immediately on
  * this instance (other instances catch up within the TTL).
  */
-const store = new Map<string, { at: number; value: Promise<unknown> }>();
+// One store per server process. Kept on globalThis because server actions and pages can be
+// bundled separately, each with its own copy of this module; a module-level Map would let an
+// action's invalidateCache() clear a different store than the pages read from.
+type Entry = { at: number; value: Promise<unknown> };
+const globalStore = globalThis as typeof globalThis & { __migTtlCache?: Map<string, Entry> };
+const store = (globalStore.__migTtlCache ??= new Map<string, Entry>());
 const MAX_ENTRIES = 1000;
 
 export function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {

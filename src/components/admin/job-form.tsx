@@ -6,10 +6,10 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, Select, Textarea } from "@/components/ui/input";
-import { Field, FormSection } from "@/components/forms/field";
+import { Field, FormSection, fieldAria } from "@/components/forms/field";
 import { FormAlert } from "@/components/forms/form-alert";
 import { applyServerErrors, errorMessage } from "@/components/forms/form-utils";
-import { RegionSelect } from "@/components/forms/region-select";
+import { RegionMultiSelect } from "@/components/forms/region-multi-select";
 import { TagInput } from "@/components/forms/tag-input";
 import {
   COMPENSATION_TYPE_LABELS,
@@ -18,21 +18,18 @@ import {
   WORK_ARRANGEMENT_LABELS,
   toOptions,
 } from "@/config/options";
+import { regionsFor } from "@/config/locations";
 import { jobSchema, type JobFormValues } from "@/modules/jobs/schemas";
 import { createJobAction, updateJobAction } from "@/modules/jobs/actions";
-
-type Option = { id: string; name: string; disabled?: boolean };
 
 export function JobForm({
   jobId,
   defaultValues,
-  staff,
   skillSuggestions,
   meta,
 }: {
   jobId?: string;
   defaultValues: JobFormValues;
-  staff: Option[];
   skillSuggestions: string[];
   meta?: { displayId: string; createdBy: string; createdAt: string; publishedAt: string; status: string };
 }) {
@@ -41,7 +38,7 @@ export function JobForm({
   const [navigating, startNavigation] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
   const form = useForm<JobFormValues>({ resolver: zodResolver(jobSchema), defaultValues });
-  const { register, control, watch, handleSubmit, formState, setError: setFieldError, setValue } = form;
+  const { register, control, watch, handleSubmit, formState, setError: setFieldError, setValue, getValues } = form;
   const e = formState.errors;
   const country = watch("country");
 
@@ -64,13 +61,13 @@ export function JobForm({
 
       <FormSection title="Basic information" description={meta ? `Job ID ${meta.displayId}` : "The Job ID and case file are created automatically."}>
         <Field id="title" label="Job title" required error={e.title?.message} className="sm:col-span-2">
-          <Input id="title" placeholder="Senior Java Developer" {...register("title")} />
+          <Input id="title" {...fieldAria("title", e.title?.message)} placeholder="Senior Java Developer" {...register("title")} />
         </Field>
         <Field id="description" label="Job description" required error={e.description?.message} className="sm:col-span-2">
-          <Textarea id="description" rows={8} {...register("description")} />
+          <Textarea id="description" {...fieldAria("description", e.description?.message)} rows={8} {...register("description")} />
         </Field>
         <Field id="responsibilities" label="Responsibilities" error={e.responsibilities?.message} hint="One per line" className="sm:col-span-2">
-          <Textarea id="responsibilities" rows={6} {...register("responsibilities")} />
+          <Textarea id="responsibilities" {...fieldAria("responsibilities", e.responsibilities?.message, true)} rows={6} {...register("responsibilities")} />
         </Field>
         <Field id="requiredSkills" label="Required skills" required error={errorMessage(e as Record<string, unknown>, "requiredSkills")} className="sm:col-span-2">
           <Controller control={control} name="requiredSkills" render={({ field }) => (
@@ -83,83 +80,93 @@ export function JobForm({
           )} />
         </Field>
         <Field id="minExperience" label="Minimum experience (years)" error={e.minExperience?.message}>
-          <Input id="minExperience" type="number" min={0} max={50} {...register("minExperience")} />
+          <Input id="minExperience" {...fieldAria("minExperience", e.minExperience?.message)} type="number" min={0} max={50} {...register("minExperience")} />
         </Field>
         <Field id="maxExperience" label="Maximum experience (years)" error={e.maxExperience?.message}>
-          <Input id="maxExperience" type="number" min={0} max={50} {...register("maxExperience")} />
+          <Input id="maxExperience" {...fieldAria("maxExperience", e.maxExperience?.message)} type="number" min={0} max={50} {...register("maxExperience")} />
         </Field>
         <Field id="education" label="Education requirements" error={e.education?.message} className="sm:col-span-2">
-          <Input id="education" placeholder="Bachelor's degree in Computer Science or equivalent" {...register("education")} />
+          <Input id="education" {...fieldAria("education", e.education?.message)} placeholder="Bachelor's degree in Computer Science or equivalent" {...register("education")} />
         </Field>
       </FormSection>
 
       <FormSection title="Employment details">
         <Field id="country" label="Country" required error={e.country?.message}>
-          <Select id="country" defaultValue={defaultValues.country} {...register("country", { onChange: () => setValue("state", "") })}>
+          <Select
+            id="country"
+            {...fieldAria("country", e.country?.message)}
+            defaultValue={defaultValues.country}
+            {...register("country", {
+              // Keep only the selected states / provinces that belong to the new country.
+              onChange: (event: React.ChangeEvent<HTMLSelectElement>) => {
+                const codes = new Set(regionsFor(event.target.value).map((r) => r.code));
+                setValue("states", (getValues("states") ?? []).filter((code) => codes.has(code)), { shouldValidate: formState.isSubmitted });
+              },
+            })}
+          >
             <option value="US">United States</option>
             <option value="CA">Canada</option>
           </Select>
         </Field>
-        <Field id="state" label="State / Province" required error={e.state?.message}>
-          <RegionSelect id="state" defaultValue={defaultValues.state} country={country} invalid={!!e.state} {...register("state")} />
+        <Field id="states" label="State / Province" required hint="Select every state or province this job is open in." error={errorMessage(e as Record<string, unknown>, "states")}>
+          <Controller control={control} name="states" render={({ field }) => (
+            <RegionMultiSelect
+              id="states"
+              ref={field.ref}
+              country={country}
+              value={field.value ?? []}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              invalid={!!e.states}
+            />
+          )} />
         </Field>
         <Field id="city" label="City" required error={e.city?.message}>
-          <Input id="city" {...register("city")} />
+          <Input id="city" {...fieldAria("city", e.city?.message)} {...register("city")} />
         </Field>
         <Field id="workArrangement" label="Work arrangement" required error={e.workArrangement?.message}>
-          <Select id="workArrangement" defaultValue={defaultValues.workArrangement} {...register("workArrangement")}>{options(toOptions(WORK_ARRANGEMENT_LABELS))}</Select>
+          <Select id="workArrangement" {...fieldAria("workArrangement", e.workArrangement?.message)} defaultValue={defaultValues.workArrangement} {...register("workArrangement")}>{options(toOptions(WORK_ARRANGEMENT_LABELS))}</Select>
         </Field>
         <Field id="employmentType" label="Employment type" required error={e.employmentType?.message}>
-          <Select id="employmentType" defaultValue={defaultValues.employmentType} {...register("employmentType")}>{options(toOptions(EMPLOYMENT_TYPE_LABELS))}</Select>
+          <Select id="employmentType" {...fieldAria("employmentType", e.employmentType?.message)} defaultValue={defaultValues.employmentType} {...register("employmentType")}>{options(toOptions(EMPLOYMENT_TYPE_LABELS))}</Select>
         </Field>
         <Field id="compensationType" label="Pay type" required error={e.compensationType?.message}>
-          <Select id="compensationType" defaultValue={defaultValues.compensationType} {...register("compensationType")}>{options(toOptions(COMPENSATION_TYPE_LABELS))}</Select>
+          <Select id="compensationType" {...fieldAria("compensationType", e.compensationType?.message)} defaultValue={defaultValues.compensationType} {...register("compensationType")}>{options(toOptions(COMPENSATION_TYPE_LABELS))}</Select>
         </Field>
         <Field id="compensationMin" label="Salary / rate minimum" error={e.compensationMin?.message}>
-          <Input id="compensationMin" type="number" min={0} step="any" {...register("compensationMin")} />
+          <Input id="compensationMin" {...fieldAria("compensationMin", e.compensationMin?.message)} type="number" min={0} step="any" {...register("compensationMin")} />
         </Field>
         <Field id="compensationMax" label="Salary / rate maximum" error={e.compensationMax?.message}>
-          <Input id="compensationMax" type="number" min={0} step="any" {...register("compensationMax")} />
+          <Input id="compensationMax" {...fieldAria("compensationMax", e.compensationMax?.message)} type="number" min={0} step="any" {...register("compensationMax")} />
         </Field>
         <Field id="currency" label="Currency" required error={e.currency?.message}>
-          <Select id="currency" defaultValue={defaultValues.currency} {...register("currency")}>{options(toOptions(CURRENCY_LABELS))}</Select>
+          <Select id="currency" {...fieldAria("currency", e.currency?.message)} defaultValue={defaultValues.currency} {...register("currency")}>{options(toOptions(CURRENCY_LABELS))}</Select>
         </Field>
         <Field id="applicationDeadline" label="Application deadline" error={e.applicationDeadline?.message} hint="Inclusive. Leave empty for open until filled.">
-          <Input id="applicationDeadline" type="date" {...register("applicationDeadline")} />
+          <Input id="applicationDeadline" {...fieldAria("applicationDeadline", e.applicationDeadline?.message, true)} type="date" {...register("applicationDeadline")} />
         </Field>
         <div className="sm:col-span-2">
           <label className="flex items-start gap-2 text-sm">
-            <Checkbox className="mt-0.5" {...register("salaryPublic")} />
+            <Checkbox id="salaryPublic" className="mt-0.5" {...fieldAria("salaryPublic", e.salaryPublic?.message)} {...register("salaryPublic")} />
             <span>Show salary / rate on the public job portal<span className="block text-xs text-muted-foreground">Only when approved for public display.</span></span>
           </label>
-          {e.salaryPublic && <p className="mt-1 text-xs text-destructive">{e.salaryPublic.message}</p>}
+          {e.salaryPublic && <p id="salaryPublic-error" className="mt-1 text-xs text-destructive">{e.salaryPublic.message}</p>}
         </div>
       </FormSection>
 
-      <FormSection title="Internal information" description="Never shown on the public portal.">
-        <Field id="assignedRecruiterId" label="Assigned recruiter" hint="Recruiters can see jobs they created or are assigned to." error={e.assignedRecruiterId?.message}>
-          <Select id="assignedRecruiterId" defaultValue={(defaultValues.assignedRecruiterId as string | undefined) ?? ""} {...register("assignedRecruiterId")}>
-            <option value="">Unassigned</option>
-            {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </Select>
-        </Field>
-        <Field id="internalNotes" label="Internal notes" error={e.internalNotes?.message} className="sm:col-span-2">
-          <Textarea id="internalNotes" rows={3} {...register("internalNotes")} />
-        </Field>
-        <label className="flex items-center gap-2 text-sm sm:col-span-2">
-          <Checkbox {...register("isFeatured")} /> Feature this job on the homepage
-        </label>
-        {meta && (
+      {meta && (
+        <FormSection title="Record">
           <dl className="grid gap-2 text-xs text-muted-foreground sm:col-span-2 sm:grid-cols-2">
             <div>Status: <span className="text-foreground">{meta.status}</span></div>
             <div>Created by: <span className="text-foreground">{meta.createdBy}</span></div>
             <div>Created: <span className="text-foreground">{meta.createdAt}</span></div>
             <div>Published (posted date): <span className="text-foreground">{meta.publishedAt}</span></div>
           </dl>
-        )}
-      </FormSection>
+        </FormSection>
+      )}
 
-      <div className="flex justify-end gap-2 border-t pt-6">
+      {/* The last FormSection already draws the divider above the buttons. */}
+      <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={() => router.back()}>Cancel</Button>
         <Button type="submit" loading={formState.isSubmitting || navigating} disabled={formState.isSubmitting || navigating}>
           {formState.isSubmitting || navigating ? "Saving…" : jobId ? "Save changes" : "Create job"}

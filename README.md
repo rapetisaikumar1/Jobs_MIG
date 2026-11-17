@@ -3,7 +3,7 @@
 One Next.js application with two portals that share one Supabase PostgreSQL database:
 
 - **Job Portal** (`/`, `/jobs`, `/candidate/*`): candidates register, search jobs, apply with resumes, and track their applications.
-- **Admin Portal** (`/admin/*`, opens on Jobs): staff manage jobs, case files, candidates, applications, advanced search, staff users and roles.
+- **Admin Portal** (`/admin/*`, opens on Jobs): staff manage jobs (with a shareable apply link), case files, applications, staff users and roles. Staff accounts only ever see the admin portal and sign in at `/admin/login`; the job portal refuses them.
 
 Every job automatically gets a **case file**, and every application automatically gets its own **application folder** inside that case file.
 
@@ -203,9 +203,9 @@ src/
 ├── app/
 │   ├── (public)/            homepage, /jobs, /jobs/[jobId], /jobs/[jobId]/apply, auth pages, /privacy
 │   ├── candidate/           dashboard, applications, profile (requires a candidate session)
-│   ├── admin/(auth)/        /admin/login, /admin/forbidden
-│   ├── admin/(portal)/      jobs (+ add-candidate), case-files (job folders → application folders), applications, candidates,
-│   │                        search, users, roles
+│   ├── admin/(auth)/        /admin/login, /admin/forgot-password, /admin/reset-password, /admin/forbidden
+│   ├── admin/(portal)/      jobs, case-files (job folders → application folders), applications,
+│   │                        users, roles
 │   ├── auth/                /auth/confirm (email links), /auth/google + /auth/callback (Google sign-in), /auth/signout
 │   └── api/                 /api/documents/[id] (secure download), /api/cron/cleanup-uploads
 ├── components/              ui/ (design system), forms/, jobs/, candidates/, applications/, documents/, admin/, layout/
@@ -274,13 +274,11 @@ Case files and folders are rows linked by foreign keys: Job → CaseFile (1:1) �
 - Roles map to permissions (`src/modules/access-control/permissions.ts`), which are synced to the database by the seed.
 - **Permissions (18):**
   - Jobs: `job.view_all`, `job.create`, `job.edit`, `job.publish`, `job.close`
-  - Candidates: `candidate.view`, `candidate.add`, `candidate.edit`
-  - Applications: `application.view`, `application.create` (add candidates to jobs), `application.update_status`, `application.assign`, `application.note`
+  - Applications: `application.view`, `application.update_status`, `application.assign`, `application.note`
   - Case files and documents: `case_file.view`, `document.view` (open and download resumes)
   - Administration: `user.manage`, `role.manage`, `role.delete` (delete unused custom roles; built-in roles cannot be deleted)
 - **Staff users** are created directly in Admin → Users, with an initial password set by the admin; there are no invitation emails. Admins can set a new password on a user's page, and deactivating a user blocks their login immediately.
-- Without `job.view_all`, staff only see jobs they created or are the assigned recruiter for (and those jobs' applications and case files).
-- The candidate talent pool is visible to everyone with `candidate.view`, but a candidate's applications are filtered by job scope.
+- Without `job.view_all`, staff only see jobs they created (and those jobs' applications and case files), plus applications assigned to them.
 - Guards:
   - The Super Admin role is locked.
   - At least one active Super Admin must always exist.

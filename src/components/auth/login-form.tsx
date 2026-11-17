@@ -38,7 +38,7 @@ export function LoginForm({ portal, next }: { portal: "candidate" | "staff"; nex
   const unverified = error?.startsWith("Please verify");
 
   if (codeEmail) {
-    return <VerifyCodeForm email={codeEmail} initialCooldown={0} onBack={() => setCodeEmail(null)} backLabel="Back to sign in" />;
+    return <VerifyCodeForm email={codeEmail} next={next} initialCooldown={0} onBack={() => setCodeEmail(null)} backLabel="Back to sign in" />;
   }
 
   return (
@@ -51,7 +51,7 @@ export function LoginForm({ portal, next }: { portal: "candidate" | "staff"; nex
         <Input id="password" type="password" autoComplete="current-password" aria-invalid={!!formState.errors.password} {...register("password")} />
       </Field>
       <div className="flex items-center justify-between text-sm">
-        <Link href="/forgot-password" className="text-muted-foreground hover:text-foreground hover:underline">
+        <Link href={portal === "staff" ? "/admin/forgot-password" : "/forgot-password"} className="text-muted-foreground hover:text-foreground hover:underline">
           Forgot password?
         </Link>
         {unverified && portal === "candidate" && (

@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import { cleanList, normalizePhone, parseDateInput } from "@/lib/format";
+import { stripControlChars } from "@/lib/utils";
 
 /** Turn "", whitespace-only strings and null into undefined (form inputs submit ""). */
 export function blankToUndefined(value: unknown): unknown {
@@ -19,10 +20,16 @@ export function enumValues<T extends string>(labels: Record<T, string>): [T, ...
 }
 
 export const requiredText = (label: string, max = 200) =>
-  z.string({ error: `${label} is required` }).trim().min(1, `${label} is required`).max(max, `${label} is too long`);
+  z
+    .string({ error: `${label} is required` })
+    .transform(stripControlChars)
+    .pipe(z.string().trim().min(1, `${label} is required`).max(max, `${label} is too long`));
 
 export const optionalText = (max = 200) =>
-  z.preprocess(blankToUndefined, z.string().max(max, `Must be ${max} characters or fewer`).optional());
+  z.preprocess(
+    (v) => blankToUndefined(typeof v === "string" ? stripControlChars(v) : v),
+    z.string().max(max, `Must be ${max} characters or fewer`).optional(),
+  );
 
 export const optionalNumber = (min: number, max: number, opts: { integer?: boolean } = {}) =>
   z.preprocess(
@@ -41,7 +48,7 @@ export const optionalEnum = <T extends string>(values: [T, ...T[]]) =>
 
 export const stringList = (maxItems = 30, maxLength = 100) =>
   z
-    .array(z.string().trim().max(maxLength, `Each entry must be ${maxLength} characters or fewer`))
+    .array(z.string().transform(stripControlChars).pipe(z.string().trim().max(maxLength, `Each entry must be ${maxLength} characters or fewer`)))
     .max(maxItems, `Add at most ${maxItems} entries`)
     .transform((values) => cleanList(values));
 

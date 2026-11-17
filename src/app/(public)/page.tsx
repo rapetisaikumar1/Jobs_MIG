@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { JobCard, JobTile } from "@/components/jobs/job-card";
 import { HeroSearch } from "@/components/jobs/hero-search";
 import { siteConfig } from "@/config/site";
-import { formatLocation } from "@/config/locations";
+import { formatJobLocation, jobStates } from "@/config/locations";
 import { formatDate } from "@/lib/format";
 import { getViewerTimeZone } from "@/lib/request";
 import { countOpenJobs, listHomepageJobs } from "@/modules/jobs/queries";
@@ -15,15 +15,13 @@ export const dynamic = "force-dynamic";
 const POPULAR = ["Java", "Data Engineer", "DevOps", "React", "Python", ".NET", "QA Automation"];
 
 export default async function HomePage() {
-  const [{ featured, recent }, timeZone, total] = await Promise.all([listHomepageJobs(), getViewerTimeZone(), countOpenJobs()]);
-  const featuredIds = new Set(featured.map((j) => j.id));
-  const recentOnly = recent.filter((j) => !featuredIds.has(j.id));
+  const [{ recent }, timeZone, total] = await Promise.all([listHomepageJobs(), getViewerTimeZone(), countOpenJobs()]);
 
   return (
     <>
       <section className="relative z-10 border-b bg-surface">
         <div className="bg-grid pointer-events-none absolute inset-0 [mask-image:linear-gradient(to_bottom,black,transparent)]" aria-hidden />
-        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[1.35fr_1fr] lg:items-center">
+        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-center">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-xs font-medium text-muted-foreground shadow-xs">
               <span className="inline-block size-1.5 rounded-full bg-brand" aria-hidden /> {total} open {total === 1 ? "role" : "roles"} across the US &amp; Canada
@@ -61,7 +59,7 @@ export default async function HomePage() {
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium">{job.title}</span>
                         <span className="block truncate text-xs text-muted-foreground">
-                          {formatLocation(job.city, job.state, job.country)} · {formatDate(job.publishedAt, timeZone)}
+                          {formatJobLocation(job.city, jobStates(job), job.country)} · {formatDate(job.publishedAt, timeZone)}
                         </span>
                       </span>
                     </Link>
@@ -74,20 +72,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {featured.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 pt-14">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight">Featured opportunities</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Priority roles our recruiters are actively hiring for.</p>
-            </div>
-          </div>
-          <div className="mt-5 space-y-2.5">
-            {featured.map((job) => <JobCard key={job.id} job={job} timeZone={timeZone} />)}
-          </div>
-        </section>
-      )}
-
       <section className="mx-auto max-w-6xl px-4 pt-14">
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -98,9 +82,9 @@ export default async function HomePage() {
             View all jobs <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
-        {recentOnly.length || featured.length ? (
+        {recent.length ? (
           <div className="mt-5 space-y-2.5">
-            {(recentOnly.length ? recentOnly : featured).map((job) => <JobCard key={job.id} job={job} timeZone={timeZone} />)}
+            {recent.map((job) => <JobCard key={job.id} job={job} timeZone={timeZone} />)}
           </div>
         ) : (
           <EmptyState className="mt-5" title="No open positions right now" description="New roles are posted regularly. Create an account so you're ready to apply." />

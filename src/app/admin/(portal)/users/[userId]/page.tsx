@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
+import { FlashNotice } from "@/components/shared/flash-notice";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/shared/avatar";
@@ -49,7 +50,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
           </ActionButton>
         )}
       />
-      {param(await searchParams, "notice") === "created" && <Alert variant="success">User created. {user.email} can sign in with the initial password you set.</Alert>}
+      {param(await searchParams, "notice") === "created" && <FlashNotice><Alert variant="success">User created. {user.email} can sign in with the initial password you set.</Alert></FlashNotice>}
       <Card>
         <CardHeader><CardTitle>Details and roles</CardTitle></CardHeader>
         <CardContent>

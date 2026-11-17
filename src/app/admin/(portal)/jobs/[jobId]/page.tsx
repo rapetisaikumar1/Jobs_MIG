@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FolderOpen, UserPlus } from "lucide-react";
+import { FolderOpen, Link2 } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -9,11 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { DetailList, TagList } from "@/components/shared/detail-list";
 import { Avatar } from "@/components/shared/avatar";
+import { FlashNotice } from "@/components/shared/flash-notice";
 import { PageHeader } from "@/components/shared/page-header";
 import { ApplicationStatusBadge, JobStatusBadge } from "@/components/shared/status-badges";
 import { JobStatusActions } from "@/components/admin/job-status-actions";
+import { CopyJobLink } from "@/components/admin/copy-job-link";
 import { COMPENSATION_TYPE_LABELS, EMPLOYMENT_TYPE_LABELS, SOURCE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
-import { formatLocation } from "@/config/locations";
+import { formatJobLocation, formatRegionNames, jobStates } from "@/config/locations";
 import {
   decimalToNumber,
   formatCalendarDate,
@@ -22,7 +24,9 @@ import {
   formatDateTime,
   formatExperienceRange,
   fullName,
+  isDeadlinePassed,
 } from "@/lib/format";
+import { serverEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { param, type SearchParams } from "@/lib/pagination";
 import { getViewerTimeZone } from "@/lib/request";
@@ -64,11 +68,15 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
   const pay = formatCompensation(decimalToNumber(job.compensationMin), decimalToNumber(job.compensationMax), job.currency, job.compensationType);
   const required = job.skills.filter((s) => s.type === "REQUIRED").map((s) => s.skill.name);
   const preferred = job.skills.filter((s) => s.type === "PREFERRED").map((s) => s.skill.name);
+  const states = jobStates(job);
+  // The public job page is addressed by the Job ID (canonical upper-case form).
+  const publicUrl = `${serverEnv.siteUrl}/jobs/${job.displayId}`;
+  const deadlinePassed = isDeadlinePassed(job.applicationDeadline);
 
   return (
     <>
       <PageHeader
-        title={<span className="flex flex-wrap items-center gap-3">{job.title} <JobStatusBadge status={job.status} />{job.isFeatured && <Badge tone="dark">Featured</Badge>}</span>}
+        title={<span className="flex flex-wrap items-center gap-3">{job.title} <JobStatusBadge status={job.status} /></span>}
         description={<>{job.displayId} · Case file {job.caseFile?.displayId}</>}
         back={{ href: "/admin/jobs", label: "Jobs" }}
         actions={
@@ -76,16 +84,33 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
             {ctx.can(PERMISSIONS.CASE_FILE_VIEW) && (
               <Link href={`/admin/case-files/${job.displayId}`} className={buttonVariants({ variant: "outline" })}><FolderOpen aria-hidden /> Case file ({job.caseFile?._count.folders ?? 0})</Link>
             )}
-            {ctx.can(PERMISSIONS.APPLICATION_CREATE) && (job.status === "DRAFT" || job.status === "PUBLISHED") && (
-              <Link href={`/admin/jobs/${job.displayId}/add-candidate`} className={buttonVariants({ variant: "outline" })}><UserPlus aria-hidden /> Add existing candidate</Link>
-            )}
             {ctx.can(PERMISSIONS.JOB_EDIT) && <Link href={`/admin/jobs/${job.displayId}/edit`} className={buttonVariants({ variant: "outline" })}>Edit</Link>}
             <JobStatusActions jobId={job.id} actions={actions} />
           </>
         }
       />
-      {notice === "created" && <Alert variant="success" className="mb-4">Job {job.displayId} created as a draft with case file {job.caseFile?.displayId}. Publish it to show it on the job portal.</Alert>}
-      {notice === "updated" && <Alert variant="success" className="mb-4">Job updated.</Alert>}
+      {notice === "created" && <FlashNotice><Alert variant="success" className="mb-4">Job {job.displayId} created as a draft with case file {job.caseFile?.displayId}. Publish it to show it on the job portal and get a shareable link for candidates.</Alert></FlashNotice>}
+      {notice === "updated" && <FlashNotice><Alert variant="success" className="mb-4">Job updated.</Alert></FlashNotice>}
+
+      <Card className="mb-6">
+        <CardHeader><CardTitle className="flex items-center gap-2"><Link2 className="size-4 text-muted-foreground" aria-hidden /> Shareable job link</CardTitle></CardHeader>
+        <CardContent>
+          {job.status === "PUBLISHED" ? (
+            <CopyJobLink
+              url={publicUrl}
+              hint={deadlinePassed
+                ? "The application deadline has passed: candidates who open this link can view the job but cannot apply."
+                : "Send this link to candidates. They can view the job and apply after signing in or creating an account."}
+            />
+          ) : job.status === "CLOSED" ? (
+            <CopyJobLink url={publicUrl} hint="This job is closed: candidates who open this link can view it but cannot apply. Re-open the job to accept applications again." />
+          ) : job.status === "DRAFT" ? (
+            <p className="text-sm text-muted-foreground">Publish this job to get a shareable link for candidates.</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Archived jobs are not shown on the job portal, so there is no shareable link.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="min-w-0 space-y-6">
@@ -114,17 +139,36 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
               <CardHeader><CardTitle>Applications ({applications.length})</CardTitle></CardHeader>
               <CardContent className="px-0 pb-0">
                 {applications.length ? (
-                  <Table>
-                    <THead><TR><TH>Application</TH><TH>Candidate</TH><TH>Applied</TH><TH>Source</TH><TH>Recruiter</TH><TH>Status</TH></TR></THead>
+                  // Compact cells; secondary columns drop out on narrow screens (and in the narrow
+                  // left column at xl) so Status always stays in view. Recruiter needs the most room.
+                  <Table className="[&_td]:px-3 [&_th]:px-3 [&_tr>*:first-child]:pl-5 [&_tr>*:last-child]:pr-5">
+                    <THead>
+                      <TR>
+                        <TH>Application</TH>
+                        <TH className="hidden sm:table-cell">Candidate</TH>
+                        <TH className="hidden sm:table-cell">Applied</TH>
+                        <TH className="hidden md:max-xl:table-cell min-[87.5rem]:table-cell">Recruiter</TH>
+                        <TH>Status</TH>
+                      </TR>
+                    </THead>
                     <TBody>
                       {applications.map((a) => (
                         <TR key={a.displayId}>
-                          <TD className="whitespace-nowrap"><Link href={`/admin/applications/${a.displayId}`} className="font-medium hover:underline">{a.displayId}</Link></TD>
-                          <TD className="whitespace-nowrap"><span className="flex items-center gap-2.5"><Avatar name={fullName(a.candidate)} size="xs" />{fullName(a.candidate)}</span></TD>
-                          <TD className="whitespace-nowrap">{formatDate(a.appliedAt, tz)}</TD>
-                          <TD>{SOURCE_LABELS[a.source]}</TD>
-                          <TD>{a.assignedRecruiter ? fullName(a.assignedRecruiter) : "—"}</TD>
-                          <TD><ApplicationStatusBadge status={a.status} /></TD>
+                          <TD className="whitespace-nowrap">
+                            <Link href={`/admin/applications/${a.displayId}`} className="font-medium hover:underline">{a.displayId}</Link>
+                            <span className="block max-w-40 truncate text-xs text-muted-foreground sm:hidden" title={fullName(a.candidate)}>{fullName(a.candidate)}</span>
+                          </TD>
+                          <TD className="hidden sm:table-cell">
+                            <span className="flex items-center gap-2.5"><Avatar name={fullName(a.candidate)} size="xs" /><span className="max-w-40 truncate" title={fullName(a.candidate)}>{fullName(a.candidate)}</span></span>
+                          </TD>
+                          <TD className="hidden whitespace-nowrap sm:table-cell">
+                            {formatDate(a.appliedAt, tz)}
+                            <span className="block text-xs text-muted-foreground">{SOURCE_LABELS[a.source]}</span>
+                          </TD>
+                          <TD className="hidden whitespace-nowrap md:max-xl:table-cell min-[87.5rem]:table-cell">
+                            {a.assignedRecruiter ? fullName(a.assignedRecruiter) : <span className="text-muted-foreground">Unassigned</span>}
+                          </TD>
+                          <TD className="whitespace-nowrap"><ApplicationStatusBadge status={a.status} /></TD>
                         </TR>
                       ))}
                     </TBody>
@@ -139,7 +183,8 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
             <CardHeader><CardTitle>Employment details</CardTitle></CardHeader>
             <CardContent>
               <DetailList columns={1} items={[
-                { label: "Location", value: formatLocation(job.city, job.state, job.country) },
+                { label: "Location", value: formatJobLocation(job.city, states, job.country) },
+                ...(states.length > 1 ? [{ label: "States / Provinces", value: formatRegionNames(job.country, states) }] : []),
                 { label: "Work arrangement", value: WORK_ARRANGEMENT_LABELS[job.workArrangement] },
                 { label: "Employment type", value: EMPLOYMENT_TYPE_LABELS[job.employmentType] },
                 { label: "Experience", value: formatExperienceRange(job.minExperience, job.maxExperience) },
@@ -150,16 +195,13 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle>Internal</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Record</CardTitle></CardHeader>
             <CardContent>
               <DetailList columns={1} items={[
-                { label: "Assigned recruiter", value: job.assignedRecruiter ? fullName(job.assignedRecruiter) : "Unassigned" },
-                { label: "Internal notes", value: job.internalNotes && <span className="prose-text">{job.internalNotes}</span> },
                 { label: "Created", value: `${formatDateTime(job.createdAt, tz)} by ${fullName(job.createdBy)}` },
                 { label: "Posted (first published)", value: job.publishedAt ? formatDateTime(job.publishedAt, tz) : "Not yet published" },
                 ...(job.closedAt ? [{ label: "Closed", value: formatDateTime(job.closedAt, tz) }] : []),
               ]} />
-              {(job.status === "PUBLISHED" || job.status === "CLOSED") && <Link href={`/jobs/${job.displayId}`} target="_blank" className="mt-4 inline-block text-sm underline">View public posting ↗</Link>}
             </CardContent>
           </Card>
         </div>

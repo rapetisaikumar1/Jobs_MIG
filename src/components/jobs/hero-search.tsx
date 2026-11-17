@@ -81,7 +81,7 @@ export function HeroSearch() {
   return (
     <div ref={boxRef} className="relative mt-8">
       <form action="/jobs" method="get" className="flex flex-col gap-2 rounded-xl border bg-background p-2 shadow-md sm:flex-row sm:items-center sm:gap-0">
-        <label className="flex flex-1 items-center gap-2 px-3">
+        <label className="flex flex-1 items-center gap-2 rounded-lg px-3 focus-within:ring-2 focus-within:ring-ring/40">
           {loading ? <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden /> : <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
           <input
             name="q"
@@ -99,7 +99,7 @@ export function HeroSearch() {
           />
         </label>
         <span className="hidden h-7 w-px bg-border sm:block" aria-hidden />
-        <label className="flex flex-1 items-center gap-2 px-3">
+        <label className="flex flex-1 items-center gap-2 rounded-lg px-3 focus-within:ring-2 focus-within:ring-ring/40">
           <MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           <input
             name="location"
@@ -114,7 +114,7 @@ export function HeroSearch() {
           />
         </label>
         <span className="hidden h-7 w-px bg-border sm:block" aria-hidden />
-        <select name="country" aria-label="Country" value={country} onChange={(e) => setCountry(e.target.value)} className="h-11 bg-transparent px-3 text-[15px] outline-none">
+        <select name="country" aria-label="Country" value={country} onChange={(e) => setCountry(e.target.value)} className="h-11 rounded-lg bg-transparent px-3 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
           <option value="">US &amp; Canada</option>
           <option value="US">United States</option>
           <option value="CA">Canada</option>

@@ -126,12 +126,16 @@ export function ApplyForm({
               Use my saved resume: <span className="font-medium">{defaultResume.fileName}</span>
             </label>
           )}
-          <label className="flex items-center gap-2 text-sm">
-            <input type="radio" value="upload" {...register("resumeChoice")} />
-            Upload a different resume
-          </label>
+          {defaultResume ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" value="upload" {...register("resumeChoice")} />
+              Upload a different resume
+            </label>
+          ) : (
+            <p className="text-sm">Upload your resume</p>
+          )}
           {resumeChoice === "upload" && (
-            <div className="space-y-2 pl-6">
+            <div className={defaultResume ? "space-y-2 pl-6" : "space-y-2"}>
               <DocumentUploader id="resume" type="RESUME" value={resumeFile} onChange={setResumeFile} invalid={!!e.resumeDocumentId} />
               {e.resumeDocumentId && <p className="text-xs text-destructive">{e.resumeDocumentId.message}</p>}
               <label className="flex items-center gap-2 text-sm">

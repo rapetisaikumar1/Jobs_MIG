@@ -58,17 +58,34 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
       {rows.length ? (
         <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
           <Table className="[&_td]:px-3 [&_th]:px-3">
-            <THead><TR><TH>Application ID</TH><TH>Candidate</TH><TH>Job</TH><TH>Case file / folder</TH><TH>Applied</TH><TH>Recruiter</TH><TH>Status</TH></TR></THead>
+            <THead>
+              <TR>
+                <TH>Application ID</TH>
+                <TH className="hidden sm:table-cell">Candidate</TH>
+                <TH className="hidden md:table-cell">Job</TH>
+                <TH className="hidden min-[87.5rem]:table-cell">Case file / folder</TH>
+                <TH className="hidden xl:table-cell">Applied</TH>
+                <TH className="hidden xl:table-cell">Recruiter</TH>
+                <TH>Status</TH>
+              </TR>
+            </THead>
             <TBody>
               {rows.map((a) => (
                 <TR key={a.id}>
-                  <TD className="whitespace-nowrap"><Link href={`/admin/applications/${a.displayId}`} className="font-medium hover:underline">{a.displayId}</Link></TD>
-                  <TD className="whitespace-nowrap"><span className="flex items-center gap-2.5"><Avatar name={fullName(a.candidate)} size="xs" />{fullName(a.candidate)}</span></TD>
-                  <TD className="max-w-52">
-                    <Link href={`/admin/jobs/${a.job.displayId}`} className="block truncate hover:underline">{a.job.title}</Link>
+                  <TD className="whitespace-nowrap">
+                    <Link href={`/admin/applications/${a.displayId}`} className="font-medium hover:underline">{a.displayId}</Link>
+                    {/* On narrow screens the hidden Candidate / Job columns are summarised here. */}
+                    <span className="block max-w-44 truncate text-xs sm:hidden" title={fullName(a.candidate)}>{fullName(a.candidate)}</span>
+                    <span className="block max-w-44 truncate text-xs text-muted-foreground md:hidden" title={a.job.title}>{a.job.title}</span>
+                  </TD>
+                  <TD className="hidden whitespace-nowrap sm:table-cell">
+                    <span className="flex items-center gap-2.5"><Avatar name={fullName(a.candidate)} size="xs" /><span className="max-w-40 truncate" title={fullName(a.candidate)}>{fullName(a.candidate)}</span></span>
+                  </TD>
+                  <TD className="hidden max-w-52 md:table-cell">
+                    <Link href={`/admin/jobs/${a.job.displayId}`} className="block truncate hover:underline" title={a.job.title}>{a.job.title}</Link>
                     <p className="text-xs text-muted-foreground">{a.job.displayId}</p>
                   </TD>
-                  <TD className="whitespace-nowrap text-xs">
+                  <TD className="hidden whitespace-nowrap text-xs min-[87.5rem]:table-cell">
                     {canViewCaseFiles ? (
                       <Link href={`/admin/case-files/${a.job.displayId}`} className="inline-flex items-center gap-1 hover:underline">
                         <FolderOpen className="size-3.5" aria-hidden />{a.job.caseFile?.displayId}
@@ -76,11 +93,11 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
                     ) : a.job.caseFile?.displayId}
                     <p className="text-muted-foreground">{a.folder?.displayId}</p>
                   </TD>
-                  <TD className="whitespace-nowrap">
+                  <TD className="hidden whitespace-nowrap xl:table-cell">
                     {formatDate(a.appliedAt, tz)}
                     <p className="text-xs text-muted-foreground">{SOURCE_LABELS[a.source]}</p>
                   </TD>
-                  <TD className="whitespace-nowrap">{a.assignedRecruiter ? fullName(a.assignedRecruiter) : <span className="text-muted-foreground">Unassigned</span>}</TD>
+                  <TD className="hidden whitespace-nowrap xl:table-cell">{a.assignedRecruiter ? fullName(a.assignedRecruiter) : <span className="text-muted-foreground">Unassigned</span>}</TD>
                   <TD className="whitespace-nowrap"><ApplicationStatusBadge status={a.status} /></TD>
                 </TR>
               ))}

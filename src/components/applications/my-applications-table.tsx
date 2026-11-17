@@ -4,6 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ApplicationStatusBadge } from "@/components/shared/status-badges";
 import { formatDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 type Row = {
   id: string;
@@ -20,9 +21,9 @@ export function MyApplicationsTable({ rows, timeZone }: { rows: Row[]; timeZone:
       <Table>
         <THead>
           <TR>
-            <TH>Application ID</TH>
+            <TH className="hidden sm:table-cell">Application ID</TH>
             <TH>Job title</TH>
-            <TH>Applied date</TH>
+            <TH className="hidden sm:table-cell">Applied date</TH>
             <TH>Status</TH>
             <TH className="text-right">Actions</TH>
           </TR>
@@ -30,16 +31,22 @@ export function MyApplicationsTable({ rows, timeZone }: { rows: Row[]; timeZone:
         <TBody>
           {rows.map((row) => (
             <TR key={row.id}>
-              <TD className="font-medium">
+              <TD className="hidden whitespace-nowrap font-medium sm:table-cell">
                 <Link href={`/candidate/applications/${row.displayId}`} className="hover:underline">{row.displayId}</Link>
               </TD>
-              <TD>{row.job.title}</TD>
-              <TD className="whitespace-nowrap">{formatDate(row.appliedAt, timeZone)}</TD>
+              <TD className="min-w-40">
+                {row.job.title}
+                {/* On phones the ID and date columns are hidden; show them under the title instead. */}
+                <span className="mt-0.5 block text-xs text-muted-foreground sm:hidden">
+                  {row.displayId} · {formatDate(row.appliedAt, timeZone)}
+                </span>
+              </TD>
+              <TD className="hidden whitespace-nowrap sm:table-cell">{formatDate(row.appliedAt, timeZone)}</TD>
               <TD><ApplicationStatusBadge status={row.status} audience="candidate" /></TD>
               <TD className="whitespace-nowrap text-right">
                 <span className="inline-flex items-center gap-1">
                   {(row.job.status === "PUBLISHED" || row.job.status === "CLOSED") && (
-                    <Link href={`/jobs/${row.job.displayId}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>View job</Link>
+                    <Link href={`/jobs/${row.job.displayId}`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden sm:inline-flex")}>View job</Link>
                   )}
                   <Link href={`/candidate/applications/${row.displayId}`} className={buttonVariants({ variant: "outline", size: "sm" })}>Details</Link>
                 </span>
