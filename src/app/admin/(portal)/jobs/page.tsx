@@ -18,6 +18,8 @@ import { requireStaff } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
 import { listAdminJobs } from "@/modules/jobs/queries";
 import { LiveSearchForm } from "@/components/forms/live-search-form";
+import { CopyJobLinkButton } from "@/components/admin/copy-job-link";
+import { serverEnv } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Jobs" };
 
@@ -58,6 +60,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
                 <TH className="hidden xl:table-cell">Posted</TH>
                 <TH className="hidden min-[87.5rem]:table-cell">Case file</TH>
                 <TH className="hidden text-right sm:table-cell">Apps</TH>
+                <TH className="text-right"><span className="sr-only">Share link</span></TH>
               </TR>
             </THead>
             <TBody>
@@ -79,6 +82,10 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
                     ) : j.caseFile?.displayId}
                   </TD>
                   <TD className="hidden text-right tabular-nums sm:table-cell">{j._count.applications}</TD>
+                  <TD className="text-right">
+                    {/* Same link and rule as the job page: only jobs on the public portal have one. */}
+                    {(j.status === "PUBLISHED" || j.status === "CLOSED") && <CopyJobLinkButton url={`${serverEnv.siteUrl}/jobs/${j.displayId}`} />}
+                  </TD>
                 </TR>
               ))}
             </TBody>

@@ -65,7 +65,6 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
                 <TH className="hidden md:table-cell">Job</TH>
                 <TH className="hidden min-[87.5rem]:table-cell">Case file / folder</TH>
                 <TH className="hidden xl:table-cell">Applied</TH>
-                <TH className="hidden xl:table-cell">Recruiter</TH>
                 <TH>Status</TH>
               </TR>
             </THead>
@@ -97,7 +96,6 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
                     {formatDate(a.appliedAt, tz)}
                     <p className="text-xs text-muted-foreground">{SOURCE_LABELS[a.source]}</p>
                   </TD>
-                  <TD className="hidden whitespace-nowrap xl:table-cell">{a.assignedRecruiter ? fullName(a.assignedRecruiter) : <span className="text-muted-foreground">Unassigned</span>}</TD>
                   <TD className="whitespace-nowrap"><ApplicationStatusBadge status={a.status} /></TD>
                 </TR>
               ))}
