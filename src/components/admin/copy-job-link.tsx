@@ -31,6 +31,31 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/** Compact "Copy link" button for tables (e.g. the admin jobs list). */
+export function CopyJobLinkButton({ url, label = "Copy link" }: { url: string; label?: string }) {
+  const [copied, setCopied] = React.useState(false);
+  const timer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
+  React.useEffect(() => () => clearTimeout(timer.current), []);
+
+  async function onCopy() {
+    if (!(await copyText(url))) {
+      // Clipboard unavailable: show the link so it can be copied by hand.
+      window.prompt("Copy this job link:", url);
+      return;
+    }
+    setCopied(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <Button type="button" variant="outline" size="sm" onClick={onCopy} title={url} aria-label={copied ? "Link copied" : `${label}: ${url}`} className="whitespace-nowrap">
+      {copied ? <Check aria-hidden className="text-success" /> : <Copy aria-hidden />}
+      <span className="hidden sm:inline" aria-live="polite">{copied ? "Copied!" : label}</span>
+    </Button>
+  );
+}
+
 /** Read-only public job URL with a "Copy link" button, for sharing a job with candidates. */
 export function CopyJobLink({ url, hint }: { url: string; hint?: React.ReactNode }) {
   const [state, setState] = React.useState<"idle" | "copied" | "failed">("idle");
