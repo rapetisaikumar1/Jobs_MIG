@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Briefcase, CalendarDays, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { EMPLOYMENT_TYPE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
-import { formatJobLocation, formatRegionNames, jobStates } from "@/config/locations";
+import { EMPLOYMENT_TYPE_LABELS } from "@/config/options";
+import { formatJobPlace, formatRegionNames, jobStates } from "@/config/locations";
+import { WorkArrangementBadge } from "@/components/jobs/work-arrangement-badge";
 import {
   decimalToNumber,
   formatCalendarDate,
@@ -31,6 +32,41 @@ export function JobPill({ children, className }: { children: React.ReactNode; cl
   return <span className={cn("inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs font-medium text-foreground/80", className)}>{children}</span>;
 }
 
+type JobMetaFields = Pick<PublicJobCard, "workArrangement" | "employmentType" | "city" | "state" | "states" | "country"> &
+  Partial<Pick<PublicJobCard, "minExperience" | "maxExperience">>;
+
+/**
+ * "[Hybrid] McLean, Virginia, United States · Contract · 5–8 yrs": the work arrangement first, then
+ * where (remote jobs show only the country), employment type and, when given, experience.
+ * Each separator stays with the item after it so narrow screens wrap cleanly.
+ */
+export function JobMetaLine({ job, className }: { job: JobMetaFields; className?: string }) {
+  const remote = job.workArrangement === "REMOTE";
+  const place = formatJobPlace(job);
+  const states = remote ? [] : jobStates(job);
+  const items = [
+    EMPLOYMENT_TYPE_LABELS[job.employmentType],
+    "minExperience" in job ? formatExperienceRange(job.minExperience, job.maxExperience) : null,
+  ].filter(Boolean);
+  return (
+    <p className={cn("flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted-foreground", className)}>
+      <WorkArrangementBadge arrangement={job.workArrangement} size="sm" />
+      {place && (
+        <span className="inline-flex min-w-0 items-center gap-1" title={states.length > 1 ? formatRegionNames(job.country, states) : undefined}>
+          {!remote && <MapPin className="size-3.5 shrink-0" aria-hidden />}
+          {place}
+        </span>
+      )}
+      {items.map((item, i) => (
+        <span key={i} className="whitespace-nowrap">
+          {(place || i > 0) && <span aria-hidden className="mr-1.5">·</span>}
+          {item}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 /** Compact single-row job listing (Indeed/LinkedIn style): three short lines per job. */
 export function JobCard({ job, timeZone, applied }: { job: PublicJobCard; timeZone: string; applied?: boolean }) {
   const pay = publicCompensation(job);
@@ -53,18 +89,7 @@ export function JobCard({ job, timeZone, applied }: { job: PublicJobCard; timeZo
             )}
           </div>
         </div>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
-          <span className="inline-flex min-w-0 items-center gap-1.5" title={jobStates(job).length > 1 ? formatRegionNames(job.country, jobStates(job)) : undefined}>
-            <MapPin className="size-3.5 shrink-0" aria-hidden />
-            {formatJobLocation(job.city, jobStates(job), job.country)}
-          </span>
-          <span aria-hidden>·</span>
-          <span>{WORK_ARRANGEMENT_LABELS[job.workArrangement]}</span>
-          <span aria-hidden>·</span>
-          <span>{EMPLOYMENT_TYPE_LABELS[job.employmentType]}</span>
-          <span aria-hidden>·</span>
-          <span>{formatExperienceRange(job.minExperience, job.maxExperience)}</span>
-        </p>
+        <JobMetaLine job={job} className="mt-1" />
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
           {pay && <JobPill className="bg-emerald-50 px-1.5 py-0.5 text-emerald-800">{pay}</JobPill>}
           {required.length > 0 && <span className="min-w-0 truncate text-muted-foreground">{required.slice(0, 6).join(" · ")}</span>}

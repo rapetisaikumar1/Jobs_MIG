@@ -14,6 +14,7 @@ export const EMPTY_JOB: JobFormValues = {
   minExperience: "",
   maxExperience: "",
   education: "",
+  clientId: "",
   country: "US",
   states: [],
   city: "",
@@ -31,6 +32,9 @@ export const EMPTY_JOB: JobFormValues = {
 type RetiredJobFields = "isFeatured" | "assignedRecruiterId" | "internalNotes";
 
 export function jobToFormValues(job: Omit<Job, RetiredJobFields> & { skills: (JobSkill & { skill: Skill })[] }): JobFormValues {
+  // Remote jobs have no city or state. Older remote rows may still hold one: it is not shown, so
+  // switching the job to hybrid / on-site starts from empty (required) location fields.
+  const remote = job.workArrangement === "REMOTE";
   return {
     title: job.title,
     description: job.description,
@@ -40,9 +44,10 @@ export function jobToFormValues(job: Omit<Job, RetiredJobFields> & { skills: (Jo
     minExperience: str(job.minExperience),
     maxExperience: str(job.maxExperience),
     education: str(job.education),
+    clientId: job.clientId ?? "",
     country: job.country === "CA" ? "CA" : "US",
-    states: jobStates(job),
-    city: job.city,
+    states: remote ? [] : jobStates(job),
+    city: remote ? "" : str(job.city),
     workArrangement: job.workArrangement,
     employmentType: job.employmentType,
     compensationMin: str(decimalToNumber(job.compensationMin)),

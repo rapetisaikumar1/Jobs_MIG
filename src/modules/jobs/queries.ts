@@ -11,7 +11,9 @@ import { openDeadlineCutoff, skillSlug } from "@/lib/format";
 import { pageArgs } from "@/lib/pagination";
 import { parseLocationQuery } from "@/config/locations";
 import type { StaffContext } from "@/modules/access-control/context";
+import { PERMISSIONS } from "@/modules/access-control/permissions";
 import { jobScopeWhere } from "@/modules/access-control/scope";
+import { uuid } from "@/lib/validation";
 
 // ----- Public portal -----
 
@@ -74,6 +76,8 @@ export type PublicJobFilters = {
 };
 
 function locationWhere(location: string): Prisma.JobWhereInput {
+  // "Remote" in the location box means remote jobs (they have no city or state).
+  if (/^remote$/i.test(location.trim())) return { workArrangement: "REMOTE" };
   const { city, regions, regionOnly } = parseLocationQuery(location);
   // "states" lists every state the job is open in; "state" also matches rows saved by older
   // code that never filled "states".
@@ -188,19 +192,46 @@ export async function listSkillSuggestions(limit = 300) {
 
 // ----- Admin portal -----
 
-export type AdminJobFilters = { q?: string; status?: JobStatus };
+/** Admin list filter by client: a client's id, or "none" for jobs without a client. */
+export type ClientFilter = string;
+
+/**
+ * The "client" filter from a list page's URL. Undefined (no filter) when the value is not a
+ * client id or "none", or when the user cannot view clients (client names are internal).
+ */
+export function parseClientFilter(ctx: StaffContext, value: string | undefined): ClientFilter | undefined {
+  if (!value || !ctx.can(PERMISSIONS.CLIENT_VIEW)) return undefined;
+  return value === "none" || uuid.safeParse(value).success ? value : undefined;
+}
+
+/** Jobs matching a client filter (also used through the job relation by case files and applications). */
+export function clientFilterWhere(ctx: StaffContext, client: ClientFilter | undefined): Prisma.JobWhereInput {
+  if (!client || !ctx.can(PERMISSIONS.CLIENT_VIEW)) return {};
+  return { clientId: client === "none" ? null : client };
+}
+
+/** A job's client, only for staff who may view clients. */
+export const jobClientSelect = { select: { id: true, name: true, isActive: true } } as const;
+export type JobClient = { id: string; name: string; isActive: boolean };
+export function visibleClient(ctx: StaffContext, client: JobClient | null | undefined): JobClient | null {
+  return client && ctx.can(PERMISSIONS.CLIENT_VIEW) ? client : null;
+}
+
+export type AdminJobFilters = { q?: string; status?: JobStatus; client?: ClientFilter };
 
 export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters, page: number) {
   const where: Prisma.JobWhereInput = {
     AND: [
       jobScopeWhere(ctx),
       filters.status ? { status: filters.status } : {},
+      clientFilterWhere(ctx, filters.client),
       filters.q
         ? {
             OR: [
               { displayId: { contains: filters.q, mode: "insensitive" } },
               { title: { contains: filters.q, mode: "insensitive" } },
-              { city: { contains: filters.q, mode: "insensitive" } },
+              // Remote jobs have no city (older remote rows may still hold one: not matched).
+              { city: { contains: filters.q, mode: "insensitive" }, workArrangement: { not: "REMOTE" } },
             ],
           }
         : {},
@@ -221,9 +252,11 @@ export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters,
         state: true,
         states: true,
         country: true,
+        workArrangement: true,
         createdAt: true,
         publishedAt: true,
         caseFile: { select: { displayId: true } },
+        client: jobClientSelect,
       },
     }),
   ]);
@@ -234,7 +267,7 @@ export async function listAdminJobs(ctx: StaffContext, filters: AdminJobFilters,
     _count: { _all: true },
   });
   const byJob = new Map(counts.map((c) => [c.jobId, c._count._all]));
-  const jobs = rows.map((j) => ({ ...j, _count: { applications: byJob.get(j.id) ?? 0 } }));
+  const jobs = rows.map((j) => ({ ...j, client: visibleClient(ctx, j.client), _count: { applications: byJob.get(j.id) ?? 0 } }));
   return { total, jobs };
 }
 
@@ -247,6 +280,7 @@ export async function getAdminJob(ctx: StaffContext, displayId: string) {
       caseFile: true,
       skills: { include: { skill: true } },
       createdBy: { select: { firstName: true, lastName: true } },
+      client: jobClientSelect,
     },
   });
   if (!job) return null;
@@ -257,6 +291,7 @@ export async function getAdminJob(ctx: StaffContext, displayId: string) {
   ]);
   return {
     ...job,
+    client: visibleClient(ctx, job.client),
     caseFile: job.caseFile ? { ...job.caseFile, _count: { folders } } : null,
     _count: { applications },
   };

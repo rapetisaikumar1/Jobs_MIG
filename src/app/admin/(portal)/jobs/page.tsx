@@ -10,13 +10,14 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Pagination, redirectPastLastPage } from "@/components/shared/pagination";
 import { JobStatusBadge } from "@/components/shared/status-badges";
 import { JOB_STATUS_LABELS, toOptions } from "@/config/options";
-import { formatRegionNames, jobStates } from "@/config/locations";
+import { formatJobPlace, formatRegionNames, jobStates } from "@/config/locations";
 import { formatDate } from "@/lib/format";
 import { DEFAULT_PAGE_SIZE, param, parsePage, type SearchParams } from "@/lib/pagination";
 import { getViewerTimeZone } from "@/lib/request";
 import { requireStaff } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
-import { listAdminJobs } from "@/modules/jobs/queries";
+import { listAdminJobs, parseClientFilter } from "@/modules/jobs/queries";
+import { listClientOptions } from "@/modules/clients/queries";
 import { LiveSearchForm } from "@/components/forms/live-search-form";
 import { CopyJobLinkButton } from "@/components/admin/copy-job-link";
 import { serverEnv } from "@/lib/env";
@@ -29,8 +30,14 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
   const page = parsePage(params.page);
   const statusParam = param(params, "status");
   const status = statusParam && statusParam in JOB_STATUS_LABELS ? (statusParam as JobStatus) : undefined;
-  const filters = { q: param(params, "q"), status };
-  const [{ total, jobs }, tz] = await Promise.all([listAdminJobs(ctx, filters, page), getViewerTimeZone()]);
+  // Clients are internal: the Client column and filter are only for staff who may view clients.
+  const canViewClients = ctx.can(PERMISSIONS.CLIENT_VIEW);
+  const filters = { q: param(params, "q"), status, client: parseClientFilter(ctx, param(params, "client")) };
+  const [{ total, jobs }, tz, clients] = await Promise.all([
+    listAdminJobs(ctx, filters, page),
+    getViewerTimeZone(),
+    canViewClients ? listClientOptions() : [],
+  ]);
 
   redirectPastLastPage("/admin/jobs", params, page, DEFAULT_PAGE_SIZE, total);
   return (
@@ -46,6 +53,13 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
           <option value="">All statuses</option>
           {toOptions(JOB_STATUS_LABELS).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select>
+        {canViewClients && (
+          <Select name="client" defaultValue={filters.client ?? ""} className="w-44" aria-label="Client">
+            <option value="">All clients</option>
+            <option value="none">No client</option>
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.isActive ? c.name : `${c.name} (inactive)`}</option>)}
+          </Select>
+        )}
         <Button type="submit" variant="outline">Filter</Button>
       </LiveSearchForm>
       {jobs.length ? (
@@ -53,12 +67,13 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
           <Table className="[&_td]:px-3 [&_th]:px-3">
             <THead>
               <TR>
-                <TH className="hidden sm:table-cell">Job ID</TH>
+                <TH className="hidden lg:table-cell">Job ID</TH>
                 <TH>Title</TH>
-                <TH className="hidden md:table-cell">Location</TH>
+                {canViewClients && <TH className="hidden xl:table-cell">Client</TH>}
+                <TH className="hidden lg:table-cell">Location</TH>
                 <TH>Status</TH>
                 <TH className="hidden xl:table-cell">Posted</TH>
-                <TH className="hidden min-[87.5rem]:table-cell">Case file</TH>
+                <TH className="hidden min-[100rem]:table-cell">Case file</TH>
                 <TH className="hidden text-right sm:table-cell">Apps</TH>
                 <TH className="text-right"><span className="sr-only">Share link</span></TH>
               </TR>
@@ -66,15 +81,30 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
             <TBody>
               {jobs.map((j) => (
                 <TR key={j.id}>
-                  <TD className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">{j.displayId}</TD>
+                  <TD className="hidden whitespace-nowrap text-muted-foreground lg:table-cell">{j.displayId}</TD>
                   <TD className="min-w-40">
-                    <Link href={`/admin/jobs/${j.displayId}`} className="block max-w-md font-medium [overflow-wrap:anywhere] hover:underline">{j.title}</Link>
-                    <span className="block text-xs text-muted-foreground sm:hidden">{j.displayId} · {j._count.applications} app{j._count.applications === 1 ? "" : "s"}</span>
+                    <Link href={`/admin/jobs/${j.displayId}`} className="block max-w-xs font-medium [overflow-wrap:anywhere] hover:underline 2xl:max-w-md">{j.title}</Link>
+                    {/* Job ID and location columns are hidden below lg; show them here instead. */}
+                    <span className="block text-xs text-muted-foreground lg:hidden">
+                      {j.displayId} · {j.workArrangement === "REMOTE" ? `Remote · ${formatJobPlace(j)}` : [j.city, jobStates(j).join(", ")].filter(Boolean).join(", ")}
+                      <span className="sm:hidden"> · {j._count.applications} app{j._count.applications === 1 ? "" : "s"}</span>
+                    </span>
+                    {/* The Client column is hidden below xl, so show the client here. */}
+                    {j.client && <span className="block max-w-md truncate text-xs text-muted-foreground xl:hidden" title={j.client.name}>{j.client.name}</span>}
                   </TD>
-                  <TD className="hidden max-w-56 truncate whitespace-nowrap md:table-cell" title={formatRegionNames(j.country, jobStates(j))}>{[j.city, jobStates(j).join(", ")].filter(Boolean).join(", ")}</TD>
+                  {canViewClients && (
+                    <TD className="hidden xl:table-cell">
+                      {j.client ? <span className="block max-w-44 truncate" title={j.client.name}>{j.client.name}</span> : <span className="text-muted-foreground">—</span>}
+                    </TD>
+                  )}
+                  {j.workArrangement === "REMOTE" ? (
+                    <TD className="hidden max-w-44 truncate whitespace-nowrap lg:table-cell">Remote · {formatJobPlace(j)}</TD>
+                  ) : (
+                    <TD className="hidden max-w-44 truncate whitespace-nowrap lg:table-cell" title={formatRegionNames(j.country, jobStates(j))}>{[j.city, jobStates(j).join(", ")].filter(Boolean).join(", ")}</TD>
+                  )}
                   <TD className="whitespace-nowrap"><JobStatusBadge status={j.status} /></TD>
                   <TD className="hidden whitespace-nowrap xl:table-cell">{j.publishedAt ? formatDate(j.publishedAt, tz) : "—"}</TD>
-                  <TD className="hidden whitespace-nowrap min-[87.5rem]:table-cell">
+                  <TD className="hidden whitespace-nowrap min-[100rem]:table-cell">
                     {ctx.can(PERMISSIONS.CASE_FILE_VIEW) ? (
                       <Link href={`/admin/case-files/${j.displayId}`} className="inline-flex items-center gap-1 hover:underline">
                         <FolderOpen className="size-3.5 text-muted-foreground" aria-hidden />{j.caseFile?.displayId}
@@ -84,7 +114,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
                   <TD className="hidden text-right tabular-nums sm:table-cell">{j._count.applications}</TD>
                   <TD className="text-right">
                     {/* Same link and rule as the job page: only jobs on the public portal have one. */}
-                    {(j.status === "PUBLISHED" || j.status === "CLOSED") && <CopyJobLinkButton url={`${serverEnv.siteUrl}/jobs/${j.displayId}`} />}
+                    {(j.status === "PUBLISHED" || j.status === "CLOSED") && <CopyJobLinkButton url={`${serverEnv.siteUrl}/jobs/${j.displayId}`} labelClassName="hidden min-[100rem]:inline" />}
                   </TD>
                 </TR>
               ))}

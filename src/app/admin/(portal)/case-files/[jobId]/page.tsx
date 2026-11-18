@@ -48,6 +48,13 @@ export default async function JobFoldersPage({ params, searchParams }: { params:
           <>
             <Link href={`/admin/jobs/${job.displayId}`} className="hover:text-foreground hover:underline">{job.displayId}</Link>
             {" · "}{caseFile.displayId}
+            {/* Internal only: getCaseFile returns the client only to staff who may view clients. */}
+            {job.client && (
+              <>
+                {" · "}Client{" "}
+                <Link href={`/admin/clients/${job.client.id}`} className="hover:text-foreground hover:underline">{job.client.name}</Link>
+              </>
+            )}
             {" · "}{itemCount(folderTotal, "application folder")}
             {" · "}Created by {fullName(job.createdBy)}
           </>

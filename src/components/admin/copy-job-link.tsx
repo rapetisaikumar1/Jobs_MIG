@@ -32,7 +32,7 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 /** Compact "Copy link" button for tables (e.g. the admin jobs list). */
-export function CopyJobLinkButton({ url, label = "Copy link" }: { url: string; label?: string }) {
+export function CopyJobLinkButton({ url, label = "Copy link", labelClassName = "hidden sm:inline" }: { url: string; label?: string; labelClassName?: string }) {
   const [copied, setCopied] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
   React.useEffect(() => () => clearTimeout(timer.current), []);
@@ -51,7 +51,7 @@ export function CopyJobLinkButton({ url, label = "Copy link" }: { url: string; l
   return (
     <Button type="button" variant="outline" size="sm" onClick={onCopy} title={url} aria-label={copied ? "Link copied" : `${label}: ${url}`} className="whitespace-nowrap">
       {copied ? <Check aria-hidden className="text-success" /> : <Copy aria-hidden />}
-      <span className="hidden sm:inline" aria-live="polite">{copied ? "Copied!" : label}</span>
+      <span className={labelClassName} aria-live="polite">{copied ? "Copied!" : label}</span>
     </Button>
   );
 }

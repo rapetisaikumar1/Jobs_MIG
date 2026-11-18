@@ -4,8 +4,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { JobCard, JobTile } from "@/components/jobs/job-card";
 import { HeroSearch } from "@/components/jobs/hero-search";
+import { WorkArrangementBadge } from "@/components/jobs/work-arrangement-badge";
 import { siteConfig } from "@/config/site";
-import { formatJobLocation, jobStates } from "@/config/locations";
+import { formatJobPlace } from "@/config/locations";
 import { formatDate } from "@/lib/format";
 import { getViewerTimeZone } from "@/lib/request";
 import { countOpenJobs, listHomepageJobs } from "@/modules/jobs/queries";
@@ -58,8 +59,9 @@ export default async function HomePage() {
                       <JobTile />
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium">{job.title}</span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {formatJobLocation(job.city, jobStates(job), job.country)} · {formatDate(job.publishedAt, timeZone)}
+                        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                          <WorkArrangementBadge arrangement={job.workArrangement} size="sm" />
+                          <span className="truncate">{[formatJobPlace(job), formatDate(job.publishedAt, timeZone)].filter(Boolean).join(" · ")}</span>
                         </span>
                       </span>
                     </Link>

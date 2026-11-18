@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Briefcase,
+  Building2,
   ClipboardList,
   FileSearch,
   FolderOpen,
@@ -22,6 +23,7 @@ const ICONS = {
   search: FileSearch,
   users: UserCog,
   roles: ShieldCheck,
+  clients: Building2,
 };
 
 export type AdminNavItem = { href: string; label: string; icon: keyof typeof ICONS; section?: string };

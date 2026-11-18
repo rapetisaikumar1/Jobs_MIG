@@ -57,6 +57,7 @@ enum EmploymentType {
   FULL_TIME
   CONTRACT
   PART_TIME
+  FULL_TIME_CONTRACT // "Full-time/Contract"
 }
 
 enum JobStatus {
@@ -141,6 +142,7 @@ model User {
   candidateProfile CandidateProfile? @relation("CandidateAccount")
 
   createdJobs          Job[]                      @relation("JobCreatedBy")
+  createdClients       Client[]                   @relation("ClientCreatedBy")
   assignedJobs         Job[]                      @relation("JobRecruiter")
   ownedCandidates      CandidateProfile[]         @relation("CandidateOwner")
   createdCandidates    CandidateProfile[]         @relation("CandidateCreatedBy")
@@ -219,9 +221,10 @@ model Job {
   education           String?
   country             Country
   // First selected state / province (kept for older code); the full list is in "states".
-  state               String
+  state               String?
   states              String[]         @default([])
-  city                String
+  // Hybrid / on-site jobs only; remote jobs leave state, states and city empty.
+  city                String?
   workArrangement     WorkArrangement  @map("work_arrangement")
   employmentType      EmploymentType   @map("employment_type")
   compensationMin     Decimal?         @map("compensation_min") @db.Decimal(12, 2)
@@ -243,6 +246,9 @@ model Job {
   publishedAt         DateTime?        @map("published_at") @db.Timestamptz(3)
   closedAt            DateTime?        @map("closed_at") @db.Timestamptz(3)
 
+  // Internal only: the client the job is for. Never selected for the public job portal.
+  clientId            String?          @map("client_id") @db.Uuid
+  client              Client?          @relation(fields: [clientId], references: [id], onDelete: Restrict)
   assignedRecruiter User?         @relation("JobRecruiter", fields: [assignedRecruiterId], references: [id], onDelete: SetNull)
   createdBy         User          @relation("JobCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   skills            JobSkill[]
@@ -257,10 +263,35 @@ model Job {
   @@index([employmentType])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "jobs_title_trgm_idx")
   @@index([createdById]) // job scope: "created by me"
+  @@index([clientId])
   @@index([createdAt(sort: Desc)]) // admin jobs list order
   @@index([displayId(ops: raw("gin_trgm_ops"))], type: Gin, map: "jobs_display_id_trgm_idx")
   @@index([city(ops: raw("gin_trgm_ops"))], type: Gin, map: "jobs_city_trgm_idx")
   @@map("jobs")
+}
+
+// ---------------------------------------------------------------------------
+// Clients (internal: the companies jobs are filled for; never shown on the job portal)
+// ---------------------------------------------------------------------------
+
+model Client {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  contactName  String?  @map("contact_name")
+  contactEmail String?  @map("contact_email")
+  contactPhone String?  @map("contact_phone")
+  website      String?
+  notes        String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdById  String?  @map("created_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  createdBy User? @relation("ClientCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  jobs      Job[]
+
+  @@index([isActive, name])
+  @@map("clients")
 }
 
 model Skill {
