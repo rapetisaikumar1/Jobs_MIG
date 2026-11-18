@@ -9,7 +9,7 @@ import { ExplorerPanel, ExtensionPill, ItemIcon, NameCell, RelativeTime, fileKin
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { PageHeader } from "@/components/shared/page-header";
 import { ApplicationStatusBadge } from "@/components/shared/status-badges";
-import { DOCUMENT_TYPE_LABELS, SOURCE_LABELS } from "@/config/options";
+import { DOCUMENT_TYPE_LABELS } from "@/config/options";
 import { formatDate, formatFileSize, fullName } from "@/lib/format";
 import { getViewerTimeZone } from "@/lib/request";
 import { requireStaff } from "@/modules/access-control/context";
@@ -73,7 +73,7 @@ export default async function ApplicationFolderContentsPage({ params }: { params
       />
       <PageHeader
         title={<span className="flex flex-wrap items-center gap-3">{name} <ApplicationStatusBadge status={app.status} /></span>}
-        description={`${app.displayId} · ${folder.displayId} · ${SOURCE_LABELS[app.source]} · Applied ${formatDate(app.appliedAt, tz)}`}
+        description={`${app.displayId} · ${folder.displayId} · Applied ${formatDate(app.appliedAt, tz)}`}
       />
 
       <ExplorerPanel

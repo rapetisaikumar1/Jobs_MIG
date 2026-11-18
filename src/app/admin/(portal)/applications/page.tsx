@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination, redirectPastLastPage } from "@/components/shared/pagination";
 import { ApplicationStatusBadge } from "@/components/shared/status-badges";
-import { APPLICATION_STATUS_LABELS, SOURCE_LABELS, toOptions } from "@/config/options";
+import { APPLICATION_STATUS_LABELS, toOptions } from "@/config/options";
 import { formatDate, fullName } from "@/lib/format";
 import { DEFAULT_PAGE_SIZE, param, parsePage, type SearchParams } from "@/lib/pagination";
 import { getViewerTimeZone } from "@/lib/request";
@@ -48,12 +48,12 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
     <>
       <PageHeader title="Applications" description="All submitted applications for jobs you can access." />
       <LiveSearchForm className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-xs">
-        <Input name="q" defaultValue={filters.q} placeholder={canViewClients ? "Application ID, candidate, job title, client" : "Application ID, candidate, job title"} className="min-w-56 flex-1" aria-label="Search applications" />
+        <Input name="q" defaultValue={filters.q} placeholder={canViewClients ? "Application ID, candidate, job title, source" : "Application ID, candidate, job title"} className="min-w-56 flex-1" aria-label="Search applications" />
         <Input name="job" defaultValue={filters.job} placeholder="Job ID" className="w-36" aria-label="Job ID" />
         {canViewClients && (
-          <Select name="client" defaultValue={filters.client ?? ""} className="w-44" aria-label="Client">
-            <option value="">All clients</option>
-            <option value="none">No client</option>
+          <Select name="client" defaultValue={filters.client ?? ""} className="w-44" aria-label="Source">
+            <option value="">All sources</option>
+            <option value="none">No source</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.isActive ? c.name : `${c.name} (inactive)`}</option>)}
           </Select>
         )}
@@ -71,7 +71,7 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
                 <TH>Application ID</TH>
                 <TH className="hidden sm:table-cell">Candidate</TH>
                 <TH className="hidden md:table-cell">Job</TH>
-                {canViewClients && <TH className="hidden xl:table-cell">Client</TH>}
+                {canViewClients && <TH className="hidden xl:table-cell">Source</TH>}
                 <TH className="hidden min-[87.5rem]:table-cell">Case file / folder</TH>
                 <TH className="hidden xl:table-cell">Applied</TH>
                 <TH>Status</TH>
@@ -112,7 +112,6 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
                   </TD>
                   <TD className="hidden whitespace-nowrap xl:table-cell">
                     {formatDate(a.appliedAt, tz)}
-                    <p className="text-xs text-muted-foreground">{SOURCE_LABELS[a.source]}</p>
                   </TD>
                   <TD className="whitespace-nowrap"><ApplicationStatusBadge status={a.status} /></TD>
                 </TR>

@@ -37,7 +37,7 @@ function jobData(input: JobInput) {
 /** A client that is missing or inactive was picked on the job form. */
 export class InvalidJobClientError extends AppError {
   constructor() {
-    super("Select an active client, or No client.");
+    super("Select an active source, or No source.");
     this.name = "InvalidJobClientError";
   }
 }

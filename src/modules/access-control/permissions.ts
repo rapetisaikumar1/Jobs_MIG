@@ -38,8 +38,8 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   "user.manage": "Create, edit and deactivate staff users",
   "role.manage": "Create and edit roles",
   "role.delete": "Delete custom roles",
-  "client.view": "See clients and the client of each job, case file and application",
-  "client.manage": "Create, edit, deactivate and delete clients",
+  "client.view": "See sources and the source of each job, case file and application",
+  "client.manage": "Create, edit, deactivate and delete sources",
 };
 
 /** Permission groups shown on the role form. */
@@ -47,7 +47,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] =
   { label: "Jobs", permissions: ["job.view_all", "job.create", "job.edit", "job.publish", "job.close"] },
   { label: "Applications", permissions: ["application.view", "application.update_status", "application.assign", "application.note"] },
   { label: "Case files & documents", permissions: ["case_file.view", "document.view"] },
-  { label: "Clients", permissions: ["client.view", "client.manage"] },
+  { label: "Sources", permissions: ["client.view", "client.manage"] },
   { label: "Administration", permissions: ["user.manage", "role.manage", "role.delete"] },
 ];
 

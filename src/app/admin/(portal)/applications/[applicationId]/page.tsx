@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailList, TagList } from "@/components/shared/detail-list";
 import { Avatar } from "@/components/shared/avatar";
@@ -15,7 +14,6 @@ import {
   COUNTRY_LABELS,
   EMPLOYMENT_TYPE_LABELS,
   QUALIFICATION_LABELS,
-  SOURCE_LABELS,
   WORK_ARRANGEMENT_LABELS,
   WORK_AUTH_STATUS_LABELS,
 } from "@/config/options";
@@ -55,7 +53,7 @@ export default async function ApplicationFolderPage({ params }: { params: Promis
           <>
             <Link href={`/admin/jobs/${app.job.displayId}`} className="hover:underline">{app.job.displayId} — {app.job.title}</Link> ·{" "}
             {/* Internal only: getApplicationFolder returns the client only to staff who may view clients. */}
-            {app.job.client && <>Client <Link href={`/admin/clients/${app.job.client.id}`} className="hover:underline">{app.job.client.name}</Link> ·{" "}</>}
+            {app.job.client && <>Source <Link href={`/admin/sources/${app.job.client.id}`} className="hover:underline">{app.job.client.name}</Link> ·{" "}</>}
             {ctx.can(PERMISSIONS.CASE_FILE_VIEW) ? <Link href={`/admin/case-files/${app.job.displayId}`} className="hover:underline">Case file {app.job.caseFile?.displayId}</Link> : <>Case file {app.job.caseFile?.displayId}</>} · Folder {app.folder?.displayId}
           </>
         }
@@ -70,7 +68,6 @@ export default async function ApplicationFolderPage({ params }: { params: Promis
               <DetailList columns={3} items={[
                 { label: "Application ID", value: app.displayId },
                 { label: "Applied", value: formatDateTime(app.appliedAt, tz) },
-                { label: "Source", value: SOURCE_LABELS[app.source] },
                 { label: "Relevant experience", value: app.relevantExperienceYears != null ? formatYears(app.relevantExperienceYears) : null },
                 { label: "Availability at application", value: app.availability },
                 { label: "Work authorization response", value: app.workAuthorizationResponse },
@@ -157,7 +154,6 @@ export default async function ApplicationFolderPage({ params }: { params: Promis
                 { label: "Email", value: c.email },
                 { label: "Phone", value: formatPhone(c.phone) },
                 { label: "Location", value: formatLocation(c.city, c.state, c.country) },
-                { label: "Source", value: <Badge tone="outline">{SOURCE_LABELS[c.source]}</Badge> },
                 { label: "LinkedIn", value: c.linkedinUrl && <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="underline">Open profile ↗</a> },
               ]} />
             </CardContent>

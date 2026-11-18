@@ -19,7 +19,7 @@ import { PERMISSIONS } from "@/modules/access-control/permissions";
 import { CLIENT_STATUS_FILTERS, type ClientStatusFilter } from "@/modules/clients/schemas";
 import { listClients } from "@/modules/clients/queries";
 
-export const metadata: Metadata = { title: "Clients" };
+export const metadata: Metadata = { title: "Sources" };
 
 function jobSummary(jobs: { open: number; total: number }) {
   if (!jobs.total) return "No jobs";
@@ -38,17 +38,17 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const notice = param(params, "notice");
   const filtered = !!(filters.q || filters.status);
 
-  redirectPastLastPage("/admin/clients", params, page, DEFAULT_PAGE_SIZE, total);
+  redirectPastLastPage("/admin/sources", params, page, DEFAULT_PAGE_SIZE, total);
   return (
     <>
       <PageHeader
-        title="Clients"
-        description="The companies jobs are for. Client details are internal and never shown to candidates."
-        actions={canManage && <Link href="/admin/clients/new" className={buttonVariants()}>Add client</Link>}
+        title="Sources"
+        description="The companies jobs are for. Source details are internal and never shown to candidates."
+        actions={canManage && <Link href="/admin/sources/new" className={buttonVariants()}>Add source</Link>}
       />
-      {notice === "deleted" && <FlashNotice><Alert variant="success" className="mb-4">Client deleted.</Alert></FlashNotice>}
+      {notice === "deleted" && <FlashNotice><Alert variant="success" className="mb-4">Source deleted.</Alert></FlashNotice>}
       <LiveSearchForm className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-xs">
-        <Input name="q" defaultValue={filters.q} placeholder="Name, contact or email" className="max-w-xs" aria-label="Search clients" />
+        <Input name="q" defaultValue={filters.q} placeholder="Name, contact or email" className="max-w-xs" aria-label="Search sources" />
         <Select name="status" defaultValue={status ?? ""} className="w-40" aria-label="Status">
           <option value="">All statuses</option>
           {Object.entries(CLIENT_STATUS_FILTERS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -71,7 +71,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
               {clients.map((c) => (
                 <TR key={c.id}>
                   <TD className="min-w-40">
-                    <Link href={`/admin/clients/${c.id}`} className="font-medium [overflow-wrap:anywhere] hover:underline">{c.name}</Link>
+                    <Link href={`/admin/sources/${c.id}`} className="font-medium [overflow-wrap:anywhere] hover:underline">{c.name}</Link>
                     {/* Narrow screens: the Contact / Jobs columns are hidden, so show them here. */}
                     {(c.contactName || c.contactEmail) && (
                       <span className="block text-xs text-muted-foreground [overflow-wrap:anywhere] md:hidden">
@@ -103,11 +103,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       ) : (
         <EmptyState
           icon={<Building2 />}
-          title={filtered ? "No clients found" : "No clients yet"}
-          description={filtered ? "Adjust the search or status filter." : canManage ? "Add a client, then choose it when creating a job." : "Clients added by an administrator appear here."}
+          title={filtered ? "No sources found" : "No sources yet"}
+          description={filtered ? "Adjust the search or status filter." : canManage ? "Add a source, then choose it when creating a job." : "Sources added by an administrator appear here."}
         />
       )}
-      <Pagination basePath="/admin/clients" params={params} page={page} pageSize={DEFAULT_PAGE_SIZE} total={total} />
+      <Pagination basePath="/admin/sources" params={params} page={page} pageSize={DEFAULT_PAGE_SIZE} total={total} />
     </>
   );
 }

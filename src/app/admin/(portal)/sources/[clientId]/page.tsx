@@ -22,7 +22,7 @@ import { PERMISSIONS } from "@/modules/access-control/permissions";
 import { deleteClientAction, setClientActiveAction } from "@/modules/clients/actions";
 import { getClient, listClientJobs } from "@/modules/clients/queries";
 
-export const metadata: Metadata = { title: "Client" };
+export const metadata: Metadata = { title: "Source" };
 
 const JOBS_SHOWN = 100;
 
@@ -41,7 +41,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
     "use server";
     const result = await deleteClientAction({ clientId: id.data! });
     // The client no longer exists, so confirm on the list.
-    if (result.ok) redirect("/admin/clients?notice=deleted");
+    if (result.ok) redirect("/admin/sources?notice=deleted");
     return result;
   }
 
@@ -52,13 +52,13 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
       <PageHeader
         title={<span className="flex flex-wrap items-center gap-3 [overflow-wrap:anywhere]">{client.name} {client.isActive ? <Badge tone="success" dot>Active</Badge> : <Badge tone="muted" dot>Inactive</Badge>}</span>}
         description={`${added} · Updated ${formatDate(client.updatedAt, tz)}`}
-        back={{ href: "/admin/clients", label: "Clients" }}
+        back={{ href: "/admin/sources", label: "Sources" }}
         actions={canManage && (
           <>
             <ActionButton
               variant="outline"
               confirm={client.isActive
-                ? `Deactivate ${client.name}? It can no longer be chosen for new jobs. Existing jobs keep this client.`
+                ? `Deactivate ${client.name}? It can no longer be chosen for new jobs. Existing jobs keep this source.`
                 : `Reactivate ${client.name}? It can be chosen for new jobs again.`}
               action={setClientActiveAction.bind(null, { clientId: client.id, active: !client.isActive })}
             >
@@ -67,7 +67,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
             <ActionButton
               variant="destructive"
               disabled={hasJobs}
-              title={hasJobs ? "Clients with jobs can't be deleted. Deactivate the client instead." : undefined}
+              title={hasJobs ? "Sources with jobs can't be deleted. Deactivate the source instead." : undefined}
               confirm={`Delete ${client.name}? This cannot be undone.`}
               action={remove}
             >
@@ -76,13 +76,13 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
           </>
         )}
       />
-      {notice === "created" && <FlashNotice><Alert variant="success">Client {client.name} created. You can now choose it when creating a job.</Alert></FlashNotice>}
+      {notice === "created" && <FlashNotice><Alert variant="success">Source {client.name} created. You can now choose it when creating a job.</Alert></FlashNotice>}
       {!client.isActive && (
-        <Alert variant="neutral">This client is inactive. It can&apos;t be chosen for new jobs; jobs already linked to it keep it.</Alert>
+        <Alert variant="neutral">This source is inactive. It can&apos;t be chosen for new jobs; jobs already linked to it keep it.</Alert>
       )}
       {canManage && hasJobs && (
         <Alert variant="neutral">
-          This client has {jobCount} job{jobCount === 1 ? "" : "s"}, so it can&apos;t be deleted. Deactivate it instead to stop it being chosen for new jobs.
+          This source has {jobCount} job{jobCount === 1 ? "" : "s"}, so it can&apos;t be deleted. Deactivate it instead to stop it being chosen for new jobs.
         </Alert>
       )}
 
@@ -123,7 +123,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
           <CardTitle>Jobs</CardTitle>
           <CardDescription>
             {jobs.length === 0
-              ? "Jobs for this client appear here."
+              ? "Jobs for this source appear here."
               : jobs.length >= JOBS_SHOWN
                 ? `The ${JOBS_SHOWN} most recent jobs you can access.`
                 : `${jobs.length} job${jobs.length === 1 ? "" : "s"}${ctx.can(PERMISSIONS.JOB_VIEW_ALL) ? "" : " you can access"}.`}
@@ -160,7 +160,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
             <EmptyState
               icon={<Briefcase />}
               title="No jobs"
-              description={hasJobs ? "This client's jobs are not in your job list." : "Choose this client when creating or editing a job."}
+              description={hasJobs ? "This source's jobs are not in your job list." : "Choose this source when creating or editing a job."}
             />
           )}
         </CardContent>

@@ -70,7 +70,6 @@ export async function getCaseFile(
           select: {
             displayId: true,
             status: true,
-            source: true,
             appliedAt: true,
             updatedAt: true,
             candidate: { select: { displayId: true, firstName: true, lastName: true } },
@@ -170,7 +169,6 @@ export async function getCaseFolder(ctx: StaffContext, jobDisplayId: string, app
         select: {
           displayId: true,
           status: true,
-          source: true,
           appliedAt: true,
           updatedAt: true,
           candidate: { select: { displayId: true, firstName: true, lastName: true } },

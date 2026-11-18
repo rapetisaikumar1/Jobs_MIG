@@ -13,7 +13,6 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Pagination, redirectPastLastPage } from "@/components/shared/pagination";
 import { RowActionsMenu, type RowAction } from "@/components/shared/row-actions-menu";
 import { ApplicationStatusBadge, JobStatusBadge } from "@/components/shared/status-badges";
-import { SOURCE_LABELS } from "@/config/options";
 import { fullName } from "@/lib/format";
 import { param, parsePage, type SearchParams } from "@/lib/pagination";
 import { getViewerTimeZone } from "@/lib/request";
@@ -51,8 +50,8 @@ export default async function JobFoldersPage({ params, searchParams }: { params:
             {/* Internal only: getCaseFile returns the client only to staff who may view clients. */}
             {job.client && (
               <>
-                {" · "}Client{" "}
-                <Link href={`/admin/clients/${job.client.id}`} className="hover:text-foreground hover:underline">{job.client.name}</Link>
+                {" · "}Source{" "}
+                <Link href={`/admin/sources/${job.client.id}`} className="hover:text-foreground hover:underline">{job.client.name}</Link>
               </>
             )}
             {" · "}{itemCount(folderTotal, "application folder")}
@@ -83,7 +82,6 @@ export default async function JobFoldersPage({ params, searchParams }: { params:
               <TR>
                 <TH>Name</TH>
                 <TH className="hidden sm:table-cell">Application status</TH>
-                <TH className="hidden xl:table-cell">Source</TH>
                 <TH className="hidden text-right sm:table-cell">Items</TH>
                 <TH className="hidden xl:table-cell">Applied</TH>
                 <TH className="hidden md:table-cell">Modified</TH>
@@ -112,7 +110,6 @@ export default async function JobFoldersPage({ params, searchParams }: { params:
                       <div className="mt-1 pl-12 sm:hidden"><ApplicationStatusBadge status={app.status} /></div>
                     </TD>
                     <TD className="hidden sm:table-cell"><ApplicationStatusBadge status={app.status} /></TD>
-                    <TD className="hidden whitespace-nowrap xl:table-cell">{SOURCE_LABELS[app.source]}</TD>
                     <TD className="hidden whitespace-nowrap text-right tabular-nums sm:table-cell" title={`${itemCount(folder._count.documents, "document")} + application details`}>
                       {items}
                     </TD>
