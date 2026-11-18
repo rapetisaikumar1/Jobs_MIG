@@ -101,3 +101,18 @@ export function parseLocationQuery(location: string): { city: string | null; reg
   // "City, Region[, Country]": the second part names the region.
   return { city: parts[0], regions: matchRegions(parts[1]), regionOnly: true };
 }
+
+/**
+ * Where a job is, for display. Remote jobs show only the country candidates must be eligible to
+ * work in ("United States"); hybrid / on-site jobs show city, state(s) and country.
+ */
+export function formatJobPlace(job: {
+  workArrangement: string;
+  city?: string | null;
+  state?: string | null;
+  states?: readonly string[] | null;
+  country?: string | null;
+}): string {
+  if (job.workArrangement === "REMOTE") return job.country ? (COUNTRY_NAMES[job.country] ?? "") : "";
+  return formatJobLocation(job.city, jobStates(job), job.country);
+}

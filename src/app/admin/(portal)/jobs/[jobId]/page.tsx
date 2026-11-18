@@ -15,7 +15,7 @@ import { ApplicationStatusBadge, JobStatusBadge } from "@/components/shared/stat
 import { JobStatusActions } from "@/components/admin/job-status-actions";
 import { CopyJobLink } from "@/components/admin/copy-job-link";
 import { COMPENSATION_TYPE_LABELS, EMPLOYMENT_TYPE_LABELS, SOURCE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
-import { formatJobLocation, formatRegionNames, jobStates } from "@/config/locations";
+import { formatJobPlace, formatRegionNames, jobStates } from "@/config/locations";
 import {
   decimalToNumber,
   formatCalendarDate,
@@ -54,7 +54,6 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
         select: {
           displayId: true, status: true, source: true, appliedAt: true,
           candidate: { select: { displayId: true, firstName: true, lastName: true } },
-          assignedRecruiter: { select: { firstName: true, lastName: true } },
         },
       })
       : Promise.resolve([]),
@@ -68,7 +67,9 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
   const pay = formatCompensation(decimalToNumber(job.compensationMin), decimalToNumber(job.compensationMax), job.currency, job.compensationType);
   const required = job.skills.filter((s) => s.type === "REQUIRED").map((s) => s.skill.name);
   const preferred = job.skills.filter((s) => s.type === "PREFERRED").map((s) => s.skill.name);
-  const states = jobStates(job);
+  // Remote jobs have no city or state (older rows may still hold one; it is not shown).
+  const remote = job.workArrangement === "REMOTE";
+  const states = remote ? [] : jobStates(job);
   // The public job page is addressed by the Job ID (canonical upper-case form).
   const publicUrl = `${serverEnv.siteUrl}/jobs/${job.displayId}`;
   const deadlinePassed = isDeadlinePassed(job.applicationDeadline);
@@ -140,14 +141,13 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
               <CardContent className="px-0 pb-0">
                 {applications.length ? (
                   // Compact cells; secondary columns drop out on narrow screens (and in the narrow
-                  // left column at xl) so Status always stays in view. Recruiter needs the most room.
+                  // left column at xl) so Status always stays in view.
                   <Table className="[&_td]:px-3 [&_th]:px-3 [&_tr>*:first-child]:pl-5 [&_tr>*:last-child]:pr-5">
                     <THead>
                       <TR>
                         <TH>Application</TH>
                         <TH className="hidden sm:table-cell">Candidate</TH>
                         <TH className="hidden sm:table-cell">Applied</TH>
-                        <TH className="hidden md:max-xl:table-cell min-[87.5rem]:table-cell">Recruiter</TH>
                         <TH>Status</TH>
                       </TR>
                     </THead>
@@ -165,9 +165,6 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
                             {formatDate(a.appliedAt, tz)}
                             <span className="block text-xs text-muted-foreground">{SOURCE_LABELS[a.source]}</span>
                           </TD>
-                          <TD className="hidden whitespace-nowrap md:max-xl:table-cell min-[87.5rem]:table-cell">
-                            {a.assignedRecruiter ? fullName(a.assignedRecruiter) : <span className="text-muted-foreground">Unassigned</span>}
-                          </TD>
                           <TD className="whitespace-nowrap"><ApplicationStatusBadge status={a.status} /></TD>
                         </TR>
                       ))}
@@ -183,7 +180,7 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
             <CardHeader><CardTitle>Employment details</CardTitle></CardHeader>
             <CardContent>
               <DetailList columns={1} items={[
-                { label: "Location", value: formatJobLocation(job.city, states, job.country) },
+                { label: "Location", value: formatJobPlace(job) },
                 ...(states.length > 1 ? [{ label: "States / Provinces", value: formatRegionNames(job.country, states) }] : []),
                 { label: "Work arrangement", value: WORK_ARRANGEMENT_LABELS[job.workArrangement] },
                 { label: "Employment type", value: EMPLOYMENT_TYPE_LABELS[job.employmentType] },
@@ -198,6 +195,17 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
             <CardHeader><CardTitle>Record</CardTitle></CardHeader>
             <CardContent>
               <DetailList columns={1} items={[
+                // Internal only; getAdminJob returns the client only to staff who may view clients.
+                ...(ctx.can(PERMISSIONS.CLIENT_VIEW)
+                  ? [{
+                    label: "Client",
+                    value: job.client ? (
+                      <Link href={`/admin/clients/${job.client.id}`} className="hover:underline">
+                        {job.client.name}{!job.client.isActive && <span className="text-muted-foreground"> (inactive)</span>}
+                      </Link>
+                    ) : "No client",
+                  }]
+                  : []),
                 { label: "Created", value: `${formatDateTime(job.createdAt, tz)} by ${fullName(job.createdBy)}` },
                 { label: "Posted (first published)", value: job.publishedAt ? formatDateTime(job.publishedAt, tz) : "Not yet published" },
                 ...(job.closedAt ? [{ label: "Closed", value: formatDateTime(job.closedAt, tz) }] : []),

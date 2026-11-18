@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailList } from "@/components/shared/detail-list";
 import { ApplicationStatusBadge } from "@/components/shared/status-badges";
 import { DocumentList } from "@/components/documents/document-list";
-import { EMPLOYMENT_TYPE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
-import { formatJobLocation, jobStates } from "@/config/locations";
+import { WorkArrangementBadge } from "@/components/jobs/work-arrangement-badge";
+import { EMPLOYMENT_TYPE_LABELS } from "@/config/options";
+import { formatJobPlace } from "@/config/locations";
 import { formatDateTime, formatYears } from "@/lib/format";
 import { param, type SearchParams } from "@/lib/pagination";
 import { getViewerTimeZone } from "@/lib/request";
@@ -42,8 +43,10 @@ export default async function CandidateApplicationPage({
         <div>
           <Link href="/candidate/applications" className="text-sm text-muted-foreground hover:text-foreground">← My applications</Link>
           <h2 className="mt-1 text-xl font-semibold">{app.job.title}</h2>
-          <p className="text-sm text-muted-foreground">
-            {app.displayId} · {app.job.displayId} · {formatJobLocation(app.job.city, jobStates(app.job), app.job.country)}
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <span>{app.displayId} · {app.job.displayId}</span>
+            <WorkArrangementBadge arrangement={app.job.workArrangement} size="sm" />
+            {formatJobPlace(app.job) && <span>{formatJobPlace(app.job)}</span>}
           </p>
         </div>
         <ApplicationStatusBadge status={app.status} audience="candidate" />
@@ -55,7 +58,7 @@ export default async function CandidateApplicationPage({
             items={[
               { label: "Applied", value: formatDateTime(app.appliedAt, timeZone) },
               { label: "Status", value: <ApplicationStatusBadge status={app.status} audience="candidate" /> },
-              { label: "Work arrangement", value: WORK_ARRANGEMENT_LABELS[app.job.workArrangement] },
+              { label: "Work arrangement", value: <WorkArrangementBadge arrangement={app.job.workArrangement} /> },
               { label: "Employment type", value: EMPLOYMENT_TYPE_LABELS[app.job.employmentType] },
               { label: "Relevant experience", value: app.relevantExperienceYears != null ? formatYears(app.relevantExperienceYears) : null },
               { label: "Availability", value: app.availability },

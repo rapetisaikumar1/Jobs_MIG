@@ -29,6 +29,7 @@ export const EMPLOYMENT_TYPE_LABELS: Labels<EmploymentType> = {
   FULL_TIME: "Full-time",
   CONTRACT: "Contract",
   PART_TIME: "Part-time",
+  FULL_TIME_CONTRACT: "Full-time/Contract",
 };
 
 export const JOB_STATUS_LABELS: Labels<JobStatus> = {

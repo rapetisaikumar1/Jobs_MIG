@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { ApplicationStatus, Source } from "@prisma/client";
+import type { ApplicationStatus } from "@prisma/client";
 import { ClipboardList, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox, Input, Select } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Avatar } from "@/components/shared/avatar";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -17,6 +17,8 @@ import { getViewerTimeZone } from "@/lib/request";
 import { requireStaff } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
 import { listApplications } from "@/modules/applications/queries";
+import { listClientOptions } from "@/modules/clients/queries";
+import { parseClientFilter } from "@/modules/jobs/queries";
 import { LiveSearchForm } from "@/components/forms/live-search-form";
 
 export const metadata: Metadata = { title: "Applications" };
@@ -26,15 +28,19 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
   const params = await searchParams;
   const page = parsePage(params.page);
   const s = param(params, "status");
-  const src = param(params, "source");
   const filters = {
     q: param(params, "q")?.slice(0, 100),
     status: s && s in APPLICATION_STATUS_LABELS ? (s as ApplicationStatus) : undefined,
-    source: src && src in SOURCE_LABELS ? (src as Source) : undefined,
     job: param(params, "job")?.slice(0, 30),
-    mine: param(params, "mine") === "1",
+    client: parseClientFilter(ctx, param(params, "client")),
   };
-  const [{ total, rows }, tz] = await Promise.all([listApplications(ctx, filters, page), getViewerTimeZone()]);
+  // Clients are internal: the Client column, filter and search are only for staff who may view clients.
+  const canViewClients = ctx.can(PERMISSIONS.CLIENT_VIEW);
+  const [{ total, rows }, tz, clients] = await Promise.all([
+    listApplications(ctx, filters, page),
+    getViewerTimeZone(),
+    canViewClients ? listClientOptions() : [],
+  ]);
   const canViewCaseFiles = ctx.can(PERMISSIONS.CASE_FILE_VIEW);
 
   redirectPastLastPage("/admin/applications", params, page, DEFAULT_PAGE_SIZE, total);
@@ -42,17 +48,19 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
     <>
       <PageHeader title="Applications" description="All submitted applications for jobs you can access." />
       <LiveSearchForm className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-xs">
-        <Input name="q" defaultValue={filters.q} placeholder="Application ID, candidate, job title" className="min-w-56 flex-1" aria-label="Search applications" />
+        <Input name="q" defaultValue={filters.q} placeholder={canViewClients ? "Application ID, candidate, job title, client" : "Application ID, candidate, job title"} className="min-w-56 flex-1" aria-label="Search applications" />
         <Input name="job" defaultValue={filters.job} placeholder="Job ID" className="w-36" aria-label="Job ID" />
+        {canViewClients && (
+          <Select name="client" defaultValue={filters.client ?? ""} className="w-44" aria-label="Client">
+            <option value="">All clients</option>
+            <option value="none">No client</option>
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.isActive ? c.name : `${c.name} (inactive)`}</option>)}
+          </Select>
+        )}
         <Select name="status" defaultValue={filters.status ?? ""} className="w-40" aria-label="Status">
           <option value="">All statuses</option>
           {toOptions(APPLICATION_STATUS_LABELS).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select>
-        <Select name="source" defaultValue={filters.source ?? ""} className="w-44" aria-label="Source">
-          <option value="">All sources</option>
-          {toOptions(SOURCE_LABELS).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </Select>
-        <label className="flex items-center gap-2 whitespace-nowrap px-1 text-sm"><Checkbox name="mine" value="1" defaultChecked={filters.mine} /> Assigned to me</label>
         <Button type="submit" variant="outline">Filter</Button>
       </LiveSearchForm>
       {rows.length ? (
@@ -63,6 +71,7 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
                 <TH>Application ID</TH>
                 <TH className="hidden sm:table-cell">Candidate</TH>
                 <TH className="hidden md:table-cell">Job</TH>
+                {canViewClients && <TH className="hidden xl:table-cell">Client</TH>}
                 <TH className="hidden min-[87.5rem]:table-cell">Case file / folder</TH>
                 <TH className="hidden xl:table-cell">Applied</TH>
                 <TH>Status</TH>
@@ -75,15 +84,24 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
                     <Link href={`/admin/applications/${a.displayId}`} className="font-medium hover:underline">{a.displayId}</Link>
                     {/* On narrow screens the hidden Candidate / Job columns are summarised here. */}
                     <span className="block max-w-44 truncate text-xs sm:hidden" title={fullName(a.candidate)}>{fullName(a.candidate)}</span>
-                    <span className="block max-w-44 truncate text-xs text-muted-foreground md:hidden" title={a.job.title}>{a.job.title}</span>
+                    <span className="block max-w-44 truncate text-xs text-muted-foreground md:hidden" title={a.job.title}>{a.job.title}{a.job.client && <> · {a.job.client.name}</>}</span>
                   </TD>
                   <TD className="hidden whitespace-nowrap sm:table-cell">
                     <span className="flex items-center gap-2.5"><Avatar name={fullName(a.candidate)} size="xs" /><span className="max-w-40 truncate" title={fullName(a.candidate)}>{fullName(a.candidate)}</span></span>
                   </TD>
                   <TD className="hidden max-w-52 md:table-cell">
                     <Link href={`/admin/jobs/${a.job.displayId}`} className="block truncate hover:underline" title={a.job.title}>{a.job.title}</Link>
-                    <p className="text-xs text-muted-foreground">{a.job.displayId}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {a.job.displayId}
+                      {/* The Client column is hidden below xl, so show the client here. */}
+                      {a.job.client && <span className="xl:hidden" title={a.job.client.name}> · {a.job.client.name}</span>}
+                    </p>
                   </TD>
+                  {canViewClients && (
+                    <TD className="hidden xl:table-cell">
+                      {a.job.client ? <span className="block max-w-40 truncate whitespace-nowrap" title={a.job.client.name}>{a.job.client.name}</span> : <span className="text-muted-foreground">—</span>}
+                    </TD>
+                  )}
                   <TD className="hidden whitespace-nowrap text-xs min-[87.5rem]:table-cell">
                     {canViewCaseFiles ? (
                       <Link href={`/admin/case-files/${a.job.displayId}`} className="inline-flex items-center gap-1 hover:underline">

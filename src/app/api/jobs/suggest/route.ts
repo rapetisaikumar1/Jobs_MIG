@@ -1,7 +1,7 @@
 import { stripControlChars } from "@/lib/utils";
 import { NextResponse, type NextRequest } from "next/server";
 import { EMPLOYMENT_TYPE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
-import { formatJobLocation, jobStates } from "@/config/locations";
+import { formatJobPlace } from "@/config/locations";
 import { suggestPublicJobs } from "@/modules/jobs/queries";
 import { allowRequest } from "@/lib/memory-rate-limit";
 
@@ -28,8 +28,9 @@ export async function GET(request: NextRequest) {
       jobs: jobs.map((job) => ({
         displayId: job.displayId,
         title: job.title,
-        location: formatJobLocation(job.city, jobStates(job), job.country),
-        meta: `${WORK_ARRANGEMENT_LABELS[job.workArrangement]} · ${EMPLOYMENT_TYPE_LABELS[job.employmentType]}`,
+        // Arrangement first, then where: "Remote · United States", "Hybrid · McLean, Virginia, United States".
+        location: [WORK_ARRANGEMENT_LABELS[job.workArrangement], formatJobPlace(job)].filter(Boolean).join(" · "),
+        meta: EMPLOYMENT_TYPE_LABELS[job.employmentType],
       })),
     },
     { headers: { "Cache-Control": "no-store" } },

@@ -13,6 +13,7 @@ const NAV: (AdminNavItem & { permission?: Permission })[] = [
   { href: "/admin/jobs", label: "Jobs", icon: "jobs", section: "Recruitment" },
   { href: "/admin/case-files", label: "Case files", icon: "caseFiles", section: "Recruitment", permission: P.CASE_FILE_VIEW },
   { href: "/admin/applications", label: "Applications", icon: "applications", section: "Recruitment", permission: P.APPLICATION_VIEW },
+  { href: "/admin/clients", label: "Clients", icon: "clients", section: "Administration", permission: P.CLIENT_VIEW },
   { href: "/admin/users", label: "Users", icon: "users", section: "Administration", permission: P.USER_MANAGE },
   { href: "/admin/roles", label: "Roles", icon: "roles", section: "Administration", permission: P.ROLE_MANAGE },
 ];
@@ -36,12 +37,14 @@ export default async function AdminPortalLayout({ children }: { children: React.
             <AdminSidebar items={items} />
           </div>
           <div className="hidden border-t p-3 lg:block">
-            <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-              <Avatar name={name} size="sm" />
-              <div className="min-w-0 flex-1 leading-tight">
-                <p className="truncate text-sm font-medium">{name}</p>
-                <p className="truncate text-xs text-muted-foreground">{ctx.roleNames.join(", ") || "No role"}</p>
-              </div>
+            <div className="flex items-center gap-1">
+              <Link href="/admin/profile" title="Profile settings" className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/60">
+                <Avatar name={name} size="sm" />
+                <span className="min-w-0 flex-1 leading-tight">
+                  <span className="block truncate text-sm font-medium">{name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{ctx.roleNames.join(", ") || "No role"}</span>
+                </span>
+              </Link>
               <form action={logoutAction.bind(null, "staff")}>
                 <button type="submit" title="Sign out" aria-label="Sign out" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
                   <LogOut className="size-4" />
@@ -55,7 +58,9 @@ export default async function AdminPortalLayout({ children }: { children: React.
         <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b bg-background/90 px-4 backdrop-blur lg:px-8">
           <AdminGlobalSearch />
           <div className="ml-auto flex items-center gap-3 lg:hidden">
-            <Avatar name={name} size="sm" />
+            <Link href="/admin/profile" title="Profile settings" aria-label={`Profile settings for ${name}`} className="rounded-full">
+              <Avatar name={name} size="sm" />
+            </Link>
             <form action={logoutAction.bind(null, "staff")}>
               <button type="submit" className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs font-medium hover:bg-muted">
                 <LogOut className="size-3.5" aria-hidden /> Sign out

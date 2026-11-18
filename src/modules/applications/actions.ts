@@ -11,13 +11,11 @@ import { requireCandidateForAction } from "@/modules/auth/session";
 import {
   applicationNoteSchema,
   applySchema,
-  assignRecruiterSchema,
   statusUpdateSchema,
   type ApplyFormValues,
 } from "@/modules/applications/schemas";
 import {
   addApplicationNote,
-  assignApplicationRecruiter,
   submitPortalApplication,
   updateApplicationStatus,
 } from "@/modules/applications/service";
@@ -54,16 +52,5 @@ export async function addApplicationNoteAction(values: z.input<typeof applicatio
     await addApplicationNote(ctx, parsed.data.applicationId, parsed.data.body);
     revalidatePath("/admin", "layout");
     return ok(undefined, "Note added.");
-  });
-}
-
-export async function assignRecruiterAction(values: z.input<typeof assignRecruiterSchema>): Promise<ActionResult> {
-  return runAction(async () => {
-    const ctx = await requireStaffForAction(PERMISSIONS.APPLICATION_ASSIGN);
-    const parsed = assignRecruiterSchema.safeParse(values);
-    if (!parsed.success) return validationFailure(parsed.error);
-    await assignApplicationRecruiter(ctx, parsed.data.applicationId, parsed.data.assignedRecruiterId ?? null);
-    revalidatePath("/admin", "layout");
-    return ok(undefined, "Recruiter updated.");
   });
 }

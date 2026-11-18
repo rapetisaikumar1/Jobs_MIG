@@ -66,6 +66,37 @@ describe("job form", () => {
     expect(empty.success).toBe(false);
     expect(empty.error?.issues.some((i) => i.path[0] === "states")).toBe(true);
   });
+  it("remote jobs need no city or state, and never keep one", () => {
+    const remote = jobSchema.parse({ ...base, workArrangement: "REMOTE", states: [], city: "" });
+    expect(remote.states).toEqual([]);
+    expect(remote.city).toBeNull();
+    expect(remote.country).toBe("CA");
+    // Values left in the hidden fields (e.g. an older remote job) are dropped, not validated.
+    const stale = jobSchema.parse({ ...base, workArrangement: "REMOTE", states: ["TX"], city: "Austin" });
+    expect(stale.states).toEqual([]);
+    expect(stale.city).toBeNull();
+    // The output parses again (the server action re-validates the form's parsed values).
+    expect(jobSchema.parse(remote)).toMatchObject({ states: [], city: null });
+  });
+  it("hybrid and on-site jobs still require a state / province and a city", () => {
+    for (const workArrangement of ["HYBRID", "ONSITE"]) {
+      const result = jobSchema.safeParse({ ...base, workArrangement, states: [], city: "  " });
+      expect(result.success).toBe(false);
+      const paths = result.error?.issues.map((i) => i.path[0]);
+      expect(paths).toContain("states");
+      expect(paths).toContain("city");
+      expect(jobSchema.parse({ ...base, workArrangement })).toMatchObject({ states: ["ON"], city: "Toronto" });
+    }
+  });
+  it("accepts the Full-time/Contract employment type", () => {
+    expect(jobSchema.parse({ ...base, employmentType: "FULL_TIME_CONTRACT" }).employmentType).toBe("FULL_TIME_CONTRACT");
+    expect(jobSchema.safeParse({ ...base, employmentType: "TEMP" }).success).toBe(false);
+  });
+  it("client is optional and must be an id", () => {
+    expect(jobSchema.parse({ ...base, clientId: "" }).clientId).toBeUndefined();
+    expect(jobSchema.parse({ ...base, clientId: uuid }).clientId).toBe(uuid);
+    expect(jobSchema.safeParse({ ...base, clientId: "acme" }).success).toBe(false);
+  });
   it("no longer carries the retired internal / featured fields", () => {
     const job = jobSchema.parse({ ...base, assignedRecruiterId: "x", internalNotes: "y", isFeatured: true } as never);
     expect(job).not.toHaveProperty("assignedRecruiterId");

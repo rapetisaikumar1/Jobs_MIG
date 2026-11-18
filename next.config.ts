@@ -23,6 +23,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Render <title>/<meta> in the document head for every visitor instead of streaming them into
+  // the body after the page. Streamed metadata intermittently tripped a React hydration error
+  // (#418) on the job portal; the job pages' metadata is cheap (cached job lookup), so waiting
+  // for it costs nothing noticeable. Also gives every crawler and link preview the full head.
+  htmlLimitedBots: /.*/,
   devIndicators: { position: "bottom-right" },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

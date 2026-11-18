@@ -34,10 +34,5 @@ export const applicationNoteSchema = z.object({
   body: requiredText("Note", 5000),
 });
 
-export const assignRecruiterSchema = z.object({
-  applicationId: uuid,
-  assignedRecruiterId: optionalUuid,
-});
-
 export type ApplyInput = z.output<typeof applySchema>;
 export type ApplyFormValues = z.input<typeof applySchema>;

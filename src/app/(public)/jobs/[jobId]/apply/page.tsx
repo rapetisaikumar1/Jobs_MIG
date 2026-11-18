@@ -5,8 +5,9 @@ import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetailList, TagList } from "@/components/shared/detail-list";
 import { ApplyForm } from "@/components/applications/apply-form";
+import { WorkArrangementBadge } from "@/components/jobs/work-arrangement-badge";
 import { COUNTRY_LABELS, WORK_AUTH_STATUS_LABELS } from "@/config/options";
-import { formatJobLocation, formatLocation, jobStates } from "@/config/locations";
+import { formatJobPlace, formatLocation } from "@/config/locations";
 import { formatPhone, formatYears, fullName, isDeadlinePassed } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { requireCandidate } from "@/modules/auth/session";
@@ -38,8 +39,10 @@ export default async function ApplyPage({ params }: { params: Promise<{ jobId: s
     <div className="mx-auto max-w-4xl px-4 py-10">
       <Link href={`/jobs/${job.displayId}`} className="text-sm text-muted-foreground hover:text-foreground">← Back to job</Link>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight">Apply: {job.title}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {job.displayId} · {formatJobLocation(job.city, jobStates(job), job.country)}
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+        <span>{job.displayId}</span>
+        <WorkArrangementBadge arrangement={job.workArrangement} size="sm" />
+        {formatJobPlace(job) && <span>{formatJobPlace(job)}</span>}
       </p>
 
       <Card className="mt-6">

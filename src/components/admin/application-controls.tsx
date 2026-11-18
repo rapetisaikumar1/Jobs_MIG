@@ -9,7 +9,6 @@ import { FormAlert } from "@/components/forms/form-alert";
 import { APPLICATION_STATUS_LABELS, APPLICATION_STATUSES } from "@/config/options";
 import {
   addApplicationNoteAction,
-  assignRecruiterAction,
   updateApplicationStatusAction,
 } from "@/modules/applications/actions";
 
@@ -50,25 +49,6 @@ export function StatusUpdateForm({ applicationId, status }: { applicationId: str
         <Input id="statusNote" value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} />
       </Field>
       <Button type="submit" loading={pending} disabled={pending || next === status} className="w-full">Update status</Button>
-    </form>
-  );
-}
-
-export function AssignRecruiterForm({ applicationId, current, staff }: { applicationId: string; current: string; staff: { id: string; name: string }[] }) {
-  const [value, setValue] = React.useState(current);
-  const { message, pending, run } = useResult();
-  return (
-    <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); run(() => assignRecruiterAction({ applicationId, assignedRecruiterId: value })); }}>
-      <Field id="recruiter" label="Assigned recruiter">
-        <div className="flex gap-2">
-          <Select id="recruiter" value={value} onChange={(e) => setValue(e.target.value)}>
-            <option value="">Unassigned</option>
-            {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </Select>
-          <Button type="submit" variant="outline" loading={pending} disabled={pending || value === current}>Save</Button>
-        </div>
-      </Field>
-      {message && <p className={message.ok ? "text-xs text-success" : "text-xs text-destructive"}>{message.text}</p>}
     </form>
   );
 }

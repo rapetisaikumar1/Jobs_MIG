@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { StaffContext } from "@/modules/access-control/context";
 import { jobScopeWhere } from "@/modules/access-control/scope";
+import { clientFilterWhere, jobClientSelect, visibleClient, type ClientFilter } from "@/modules/jobs/queries";
 
 /** Application folders shown per page inside one case file. */
 export const CASE_FOLDER_PAGE_SIZE = 50;
@@ -28,6 +29,7 @@ export async function getCaseFile(
       status: true,
       createdAt: true,
       createdBy: personName,
+      client: jobClientSelect,
       caseFile: { select: { id: true, displayId: true, createdAt: true } },
     },
   });
@@ -90,7 +92,7 @@ export async function getCaseFile(
 
   const caseFile = { ...found.caseFile, _count: { folders: folderTotal } };
   return {
-    job: { ...found, caseFile },
+    job: { ...found, client: visibleClient(ctx, found.client), caseFile },
     caseFile,
     /** Folders matching the search (all folders when there is no search). */
     total: matching ?? folderTotal,
@@ -98,12 +100,16 @@ export async function getCaseFile(
   };
 }
 
-/** All case files the user can access (one per job), newest first. */
-export async function listCaseFiles(ctx: StaffContext, q: string | undefined, page: number, pageSize = 48) {
+export type CaseFileListFilters = { q?: string; client?: ClientFilter };
+
+/** All case files the user can access (one per job), newest first. The client comes from the job. */
+export async function listCaseFiles(ctx: StaffContext, filters: CaseFileListFilters, page: number, pageSize = 48) {
+  const { q } = filters;
   const where: Prisma.CaseFileWhereInput = {
     job: {
       AND: [
         jobScopeWhere(ctx),
+        clientFilterWhere(ctx, filters.client),
         q
           ? {
               OR: [
@@ -127,7 +133,7 @@ export async function listCaseFiles(ctx: StaffContext, q: string | undefined, pa
         id: true,
         displayId: true,
         createdAt: true,
-        job: { select: { displayId: true, title: true, status: true, updatedAt: true, createdBy: personName } },
+        job: { select: { displayId: true, title: true, status: true, updatedAt: true, createdBy: personName, client: jobClientSelect } },
       },
     }),
   ]);
@@ -146,7 +152,7 @@ export async function listCaseFiles(ctx: StaffContext, q: string | undefined, pa
     const newestFolder = stats?._max.createdAt;
     // Last activity: the newest application folder, or the last edit to the job, whichever is later.
     const lastActivityAt = newestFolder && newestFolder > r.job.updatedAt ? newestFolder : r.job.updatedAt;
-    return { ...r, lastActivityAt, _count: { folders: stats?._count._all ?? 0 } };
+    return { ...r, job: { ...r.job, client: visibleClient(ctx, r.job.client) }, lastActivityAt, _count: { folders: stats?._count._all ?? 0 } };
   });
   return { total, caseFiles };
 }

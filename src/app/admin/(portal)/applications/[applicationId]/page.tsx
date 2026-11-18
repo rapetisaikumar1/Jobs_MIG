@@ -8,7 +8,7 @@ import { Avatar } from "@/components/shared/avatar";
 import { PageHeader } from "@/components/shared/page-header";
 import { ApplicationStatusBadge } from "@/components/shared/status-badges";
 import { DocumentList } from "@/components/documents/document-list";
-import { AssignRecruiterForm, NoteForm, StatusUpdateForm } from "@/components/admin/application-controls";
+import { NoteForm, StatusUpdateForm } from "@/components/admin/application-controls";
 import {
   APPLICATION_STATUS_LABELS,
   COMPENSATION_TYPE_LABELS,
@@ -24,7 +24,7 @@ import { formatCalendarDate, formatDateTime, formatMoney, formatPhone, formatYea
 import { getViewerTimeZone } from "@/lib/request";
 import { requireStaff } from "@/modules/access-control/context";
 import { PERMISSIONS } from "@/modules/access-control/permissions";
-import { getApplicationFolder, listActiveStaff } from "@/modules/applications/queries";
+import { getApplicationFolder } from "@/modules/applications/queries";
 import { candidateFacingStatus } from "@/modules/applications/status";
 import { parseSnapshot } from "@/modules/candidates/snapshot";
 
@@ -37,16 +37,13 @@ function label<T extends string>(labels: Record<T, string>, v: string | null | u
 /** Application folder: candidate, submitted snapshot, documents, status, notes and history. */
 export default async function ApplicationFolderPage({ params }: { params: Promise<{ applicationId: string }> }) {
   const ctx = await requireStaff(PERMISSIONS.APPLICATION_VIEW);
-  // Independent lookups run together (the staff list doesn't depend on the application).
-  const [app, tz, staff] = await Promise.all([
+  const [app, tz] = await Promise.all([
     getApplicationFolder(ctx, (await params).applicationId.toUpperCase()),
     getViewerTimeZone(),
-    listActiveStaff(),
   ]);
   if (!app) notFound();
   const snap = parseSnapshot(app.candidateSnapshot);
   const canUpdate = ctx.can(PERMISSIONS.APPLICATION_UPDATE_STATUS);
-  const canAssign = ctx.can(PERMISSIONS.APPLICATION_ASSIGN);
   const canNote = ctx.can(PERMISSIONS.APPLICATION_NOTE);
   const c = app.candidate;
 
@@ -57,6 +54,8 @@ export default async function ApplicationFolderPage({ params }: { params: Promis
         description={
           <>
             <Link href={`/admin/jobs/${app.job.displayId}`} className="hover:underline">{app.job.displayId} — {app.job.title}</Link> ·{" "}
+            {/* Internal only: getApplicationFolder returns the client only to staff who may view clients. */}
+            {app.job.client && <>Client <Link href={`/admin/clients/${app.job.client.id}`} className="hover:underline">{app.job.client.name}</Link> ·{" "}</>}
             {ctx.can(PERMISSIONS.CASE_FILE_VIEW) ? <Link href={`/admin/case-files/${app.job.displayId}`} className="hover:underline">Case file {app.job.caseFile?.displayId}</Link> : <>Case file {app.job.caseFile?.displayId}</>} · Folder {app.folder?.displayId}
           </>
         }
@@ -77,7 +76,6 @@ export default async function ApplicationFolderPage({ params }: { params: Promis
                 { label: "Work authorization response", value: app.workAuthorizationResponse },
                 { label: "Candidate sees status", value: candidateFacingStatus(app.status) },
                 { label: "Last updated", value: formatDateTime(app.updatedAt, tz) },
-                { label: "Assigned recruiter", value: app.assignedRecruiter ? fullName(app.assignedRecruiter) : "Unassigned" },
                 { label: "Experience summary", value: app.relevantExperienceSummary && <span className="prose-text">{app.relevantExperienceSummary}</span>, wide: true },
                 { label: "Candidate comments", value: app.additionalComments && <span className="prose-text">{app.additionalComments}</span>, wide: true },
                 ...(app.consentBasis ? [{ label: "Consent / representation basis", value: `${app.consentBasis} — recorded ${formatDateTime(app.consentRecordedAt, tz)}${app.consentRecordedBy ? ` by ${fullName(app.consentRecordedBy)}` : ""}`, wide: true }] : []),
@@ -143,12 +141,11 @@ export default async function ApplicationFolderPage({ params }: { params: Promis
         {/* Below xl this column's wrapper drops out (display: contents) so its cards join the
             single-column grid, and the Status card moves to the top. At xl it is the sidebar. */}
         <div className="contents xl:block xl:space-y-6">
-          {(canUpdate || canAssign) && (
+          {canUpdate && (
             <Card className="order-first xl:order-none">
               <CardHeader><CardTitle>Status</CardTitle></CardHeader>
               <CardContent className="space-y-5">
-                {canUpdate ? <StatusUpdateForm applicationId={app.id} status={app.status} /> : <div className="text-sm">Current: <ApplicationStatusBadge status={app.status} /></div>}
-                {canAssign && <AssignRecruiterForm applicationId={app.id} current={app.assignedRecruiter?.id ?? ""} staff={staff.map((s) => ({ id: s.id, name: fullName(s) }))} />}
+                <StatusUpdateForm applicationId={app.id} status={app.status} />
               </CardContent>
             </Card>
           )}

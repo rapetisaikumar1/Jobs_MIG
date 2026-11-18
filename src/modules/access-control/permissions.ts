@@ -15,6 +15,8 @@ export const PERMISSIONS = {
   USER_MANAGE: "user.manage",
   ROLE_MANAGE: "role.manage",
   ROLE_DELETE: "role.delete",
+  CLIENT_VIEW: "client.view",
+  CLIENT_MANAGE: "client.manage",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -36,6 +38,8 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   "user.manage": "Create, edit and deactivate staff users",
   "role.manage": "Create and edit roles",
   "role.delete": "Delete custom roles",
+  "client.view": "See clients and the client of each job, case file and application",
+  "client.manage": "Create, edit, deactivate and delete clients",
 };
 
 /** Permission groups shown on the role form. */
@@ -43,6 +47,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] =
   { label: "Jobs", permissions: ["job.view_all", "job.create", "job.edit", "job.publish", "job.close"] },
   { label: "Applications", permissions: ["application.view", "application.update_status", "application.assign", "application.note"] },
   { label: "Case files & documents", permissions: ["case_file.view", "document.view"] },
+  { label: "Clients", permissions: ["client.view", "client.manage"] },
   { label: "Administration", permissions: ["user.manage", "role.manage", "role.delete"] },
 ];
 
@@ -72,7 +77,7 @@ export const SYSTEM_ROLES: Record<SystemRoleKey, { name: string; description: st
     description: "Works on their jobs: reviews applications and case files.",
     permissions: [
       P.APPLICATION_VIEW, P.APPLICATION_UPDATE_STATUS, P.APPLICATION_ASSIGN, P.APPLICATION_NOTE,
-      P.CASE_FILE_VIEW, P.DOCUMENT_VIEW,
+      P.CASE_FILE_VIEW, P.DOCUMENT_VIEW, P.CLIENT_VIEW,
     ],
   },
 };

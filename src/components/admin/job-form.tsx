@@ -21,16 +21,20 @@ import {
 import { regionsFor } from "@/config/locations";
 import { jobSchema, type JobFormValues } from "@/modules/jobs/schemas";
 import { createJobAction, updateJobAction } from "@/modules/jobs/actions";
+import type { ClientOption } from "@/modules/clients/queries";
 
 export function JobForm({
   jobId,
   defaultValues,
   skillSuggestions,
+  clients,
   meta,
 }: {
   jobId?: string;
   defaultValues: JobFormValues;
   skillSuggestions: string[];
+  /** Omitted when the user cannot view clients: the Client field is then not shown. */
+  clients?: ClientOption[];
   meta?: { displayId: string; createdBy: string; createdAt: string; publishedAt: string; status: string };
 }) {
   const router = useRouter();
@@ -38,9 +42,13 @@ export function JobForm({
   const [navigating, startNavigation] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
   const form = useForm<JobFormValues>({ resolver: zodResolver(jobSchema), defaultValues });
-  const { register, control, watch, handleSubmit, formState, setError: setFieldError, setValue, getValues } = form;
+  const { register, control, watch, handleSubmit, formState, setError: setFieldError, setValue, getValues, clearErrors } = form;
   const e = formState.errors;
   const country = watch("country");
+  // Remote jobs have no city or state: those fields are hidden and not required.
+  const remote = watch("workArrangement") === "REMOTE";
+  // Inactive clients can't be picked for a job, but a job keeps the one it already has.
+  const clientOptions = clients?.filter((c) => c.isActive || c.id === defaultValues.clientId);
 
   // Selects also get defaultValue so the server-rendered choice matches what will be saved.
   const onSubmit = handleSubmit(async (values) => {
@@ -63,6 +71,14 @@ export function JobForm({
         <Field id="title" label="Job title" required error={e.title?.message} className="sm:col-span-2">
           <Input id="title" {...fieldAria("title", e.title?.message)} placeholder="Senior Java Developer" {...register("title")} />
         </Field>
+        {clientOptions && (
+          <Field id="clientId" label="Client" hint="Internal only — never shown on the job portal." error={e.clientId?.message}>
+            <Select id="clientId" {...fieldAria("clientId", e.clientId?.message, true)} defaultValue={String(defaultValues.clientId ?? "")} {...register("clientId")}>
+              <option value="">No client</option>
+              {clientOptions.map((c) => <option key={c.id} value={c.id}>{c.isActive ? c.name : `${c.name} (inactive)`}</option>)}
+            </Select>
+          </Field>
+        )}
         <Field id="description" label="Job description" required error={e.description?.message} className="sm:col-span-2">
           <Textarea id="description" {...fieldAria("description", e.description?.message)} rows={8} {...register("description")} />
         </Field>
@@ -91,10 +107,31 @@ export function JobForm({
       </FormSection>
 
       <FormSection title="Employment details">
-        <Field id="country" label="Country" required error={e.country?.message}>
+        <Field id="workArrangement" label="Work arrangement" required error={e.workArrangement?.message}>
+          <Select
+            id="workArrangement"
+            {...fieldAria("workArrangement", e.workArrangement?.message)}
+            defaultValue={defaultValues.workArrangement}
+            {...register("workArrangement", {
+              // The hidden location fields are ignored for remote jobs, so drop any errors they showed.
+              onChange: (event: React.ChangeEvent<HTMLSelectElement>) => {
+                if (event.target.value === "REMOTE") clearErrors(["states", "city"]);
+              },
+            })}
+          >
+            {options(toOptions(WORK_ARRANGEMENT_LABELS))}
+          </Select>
+        </Field>
+        <Field
+          id="country"
+          label="Country"
+          required
+          hint={remote ? "Candidates must be eligible to work in this country." : undefined}
+          error={e.country?.message}
+        >
           <Select
             id="country"
-            {...fieldAria("country", e.country?.message)}
+            {...fieldAria("country", e.country?.message, remote)}
             defaultValue={defaultValues.country}
             {...register("country", {
               // Keep only the selected states / provinces that belong to the new country.
@@ -108,25 +145,26 @@ export function JobForm({
             <option value="CA">Canada</option>
           </Select>
         </Field>
-        <Field id="states" label="State / Province" required hint="Select every state or province this job is open in." error={errorMessage(e as Record<string, unknown>, "states")}>
-          <Controller control={control} name="states" render={({ field }) => (
-            <RegionMultiSelect
-              id="states"
-              ref={field.ref}
-              country={country}
-              value={field.value ?? []}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              invalid={!!e.states}
-            />
-          )} />
-        </Field>
-        <Field id="city" label="City" required error={e.city?.message}>
-          <Input id="city" {...fieldAria("city", e.city?.message)} {...register("city")} />
-        </Field>
-        <Field id="workArrangement" label="Work arrangement" required error={e.workArrangement?.message}>
-          <Select id="workArrangement" {...fieldAria("workArrangement", e.workArrangement?.message)} defaultValue={defaultValues.workArrangement} {...register("workArrangement")}>{options(toOptions(WORK_ARRANGEMENT_LABELS))}</Select>
-        </Field>
+        {!remote && (
+          <>
+            <Field id="states" label="State / Province" required hint="Select every state or province this job is open in." error={errorMessage(e as Record<string, unknown>, "states")}>
+              <Controller control={control} name="states" render={({ field }) => (
+                <RegionMultiSelect
+                  id="states"
+                  ref={field.ref}
+                  country={country}
+                  value={field.value ?? []}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  invalid={!!e.states}
+                />
+              )} />
+            </Field>
+            <Field id="city" label="City" required error={e.city?.message}>
+              <Input id="city" {...fieldAria("city", e.city?.message)} {...register("city")} />
+            </Field>
+          </>
+        )}
         <Field id="employmentType" label="Employment type" required error={e.employmentType?.message}>
           <Select id="employmentType" {...fieldAria("employmentType", e.employmentType?.message)} defaultValue={defaultValues.employmentType} {...register("employmentType")}>{options(toOptions(EMPLOYMENT_TYPE_LABELS))}</Select>
         </Field>

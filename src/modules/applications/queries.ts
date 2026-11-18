@@ -1,9 +1,11 @@
 import "server-only";
-import type { ApplicationStatus, Prisma, Source } from "@prisma/client";
+import type { ApplicationStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { pageArgs } from "@/lib/pagination";
 import type { StaffContext } from "@/modules/access-control/context";
+import { PERMISSIONS } from "@/modules/access-control/permissions";
 import { applicationScopeWhere } from "@/modules/access-control/scope";
+import { clientFilterWhere, jobClientSelect, visibleClient, type ClientFilter } from "@/modules/jobs/queries";
 
 // ----- Candidate portal (never exposes internal notes or status history) -----
 
@@ -16,7 +18,7 @@ export async function listOwnApplications(candidateId: string) {
       displayId: true,
       status: true,
       appliedAt: true,
-      job: { select: { displayId: true, title: true, status: true, city: true, state: true, states: true, country: true } },
+      job: { select: { displayId: true, title: true, status: true, city: true, state: true, states: true, country: true, workArrangement: true, employmentType: true } },
     },
   });
 }
@@ -68,9 +70,9 @@ export async function getOwnApplication(candidateId: string, displayId: string) 
 export type ApplicationListFilters = {
   q?: string;
   status?: ApplicationStatus;
-  source?: Source;
   job?: string;
-  mine?: boolean;
+  /** A client's id or "none"; ignored for staff who cannot view clients. */
+  client?: ClientFilter;
 };
 
 const KEYWORD_ID_LIMIT = 5_000;
@@ -81,8 +83,12 @@ const KEYWORD_ID_LIMIT = 5_000;
  * (trigram-indexed) and the application filter becomes indexed IN lists.
  * Falls back to the plain relation filter when a keyword matches too many rows.
  */
-async function applicationKeywordWhere(q: string): Promise<Prisma.ApplicationWhereInput> {
+async function applicationKeywordWhere(ctx: StaffContext, q: string): Promise<Prisma.ApplicationWhereInput> {
   const contains = { contains: q, mode: "insensitive" } as const;
+  // The job's client name is searched too, but only for staff who may view clients.
+  const jobMatch: Prisma.JobWhereInput = ctx.can(PERMISSIONS.CLIENT_VIEW)
+    ? { OR: [{ title: contains }, { client: { name: contains } }] }
+    : { title: contains };
   // "Jane Smith": every word must match the first or last name (as in the Candidates list).
   const words = q.split(/\s+/).filter(Boolean);
   const fullName: Prisma.CandidateProfileWhereInput[] =
@@ -95,7 +101,7 @@ async function applicationKeywordWhere(q: string): Promise<Prisma.ApplicationWhe
       select: { id: true },
       take: KEYWORD_ID_LIMIT + 1,
     }),
-    prisma.job.findMany({ where: { title: contains }, select: { id: true }, take: KEYWORD_ID_LIMIT + 1 }),
+    prisma.job.findMany({ where: jobMatch, select: { id: true }, take: KEYWORD_ID_LIMIT + 1 }),
   ]);
   if (candidates.length > KEYWORD_ID_LIMIT || jobs.length > KEYWORD_ID_LIMIT) {
     return {
@@ -105,7 +111,7 @@ async function applicationKeywordWhere(q: string): Promise<Prisma.ApplicationWhe
         { candidate: { lastName: contains } },
         { candidate: { email: contains } },
         ...fullName.map((f) => ({ candidate: f })),
-        { job: { title: contains } },
+        { job: jobMatch },
       ],
     };
   }
@@ -123,10 +129,9 @@ export async function listApplications(ctx: StaffContext, filters: ApplicationLi
     AND: [
       applicationScopeWhere(ctx),
       filters.status ? { status: filters.status } : {},
-      filters.source ? { source: filters.source } : {},
       filters.job ? { job: { displayId: filters.job.toUpperCase() } } : {},
-      filters.mine ? { assignedRecruiterId: ctx.user.id } : {},
-      filters.q ? await applicationKeywordWhere(filters.q) : {},
+      filters.client ? { job: clientFilterWhere(ctx, filters.client) } : {},
+      filters.q ? await applicationKeywordWhere(ctx, filters.q) : {},
     ],
   };
   const [total, rows] = await Promise.all([
@@ -142,36 +147,28 @@ export async function listApplications(ctx: StaffContext, filters: ApplicationLi
         source: true,
         appliedAt: true,
         candidate: { select: { displayId: true, firstName: true, lastName: true } },
-        job: { select: { displayId: true, title: true, caseFile: { select: { displayId: true } } } },
+        job: { select: { displayId: true, title: true, caseFile: { select: { displayId: true } }, client: jobClientSelect } },
         folder: { select: { displayId: true } },
-        assignedRecruiter: { select: { firstName: true, lastName: true } },
       },
     }),
   ]);
-  return { total, rows };
+  return { total, rows: rows.map((r) => ({ ...r, job: { ...r.job, client: visibleClient(ctx, r.job.client) } })) };
 }
 
 /** Everything in one application folder. Caller must already have checked permissions. */
 export async function getApplicationFolder(ctx: StaffContext, displayId: string) {
-  return prisma.application.findFirst({
+  const app = await prisma.application.findFirst({
     where: { AND: [{ displayId }, applicationScopeWhere(ctx)] },
     include: {
       candidate: { include: { skills: { include: { skill: true } } } },
-      job: { include: { caseFile: true } },
+      job: { include: { caseFile: true, client: jobClientSelect } },
       folder: true,
       documents: { where: { status: "ACTIVE" }, orderBy: { createdAt: "asc" } },
       statusHistory: { orderBy: { changedAt: "desc" }, include: { changedBy: { select: { firstName: true, lastName: true } } } },
       notes: { orderBy: { createdAt: "desc" }, include: { author: { select: { firstName: true, lastName: true } } } },
-      assignedRecruiter: { select: { id: true, firstName: true, lastName: true } },
       consentRecordedBy: { select: { firstName: true, lastName: true } },
     },
   });
-}
-
-export async function listActiveStaff() {
-  return prisma.user.findMany({
-    where: { type: "STAFF", isActive: true },
-    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    select: { id: true, firstName: true, lastName: true },
-  });
+  // The job's client is internal: only for staff who may view clients.
+  return app && { ...app, job: { ...app.job, client: visibleClient(ctx, app.job.client) } };
 }

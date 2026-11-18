@@ -19,7 +19,8 @@ function jobData(input: JobInput) {
     education: input.education ?? null,
     country: input.country,
     // "state" keeps the first selection so code that reads only the single column still works.
-    state: input.states[0],
+    // Remote jobs: the schema returns no states and no city, so all three are cleared.
+    state: input.states[0] ?? null,
     states: input.states,
     city: input.city,
     workArrangement: input.workArrangement,
@@ -33,15 +34,39 @@ function jobData(input: JobInput) {
   };
 }
 
+/** A client that is missing or inactive was picked on the job form. */
+export class InvalidJobClientError extends AppError {
+  constructor() {
+    super("Select an active client, or No client.");
+    this.name = "InvalidJobClientError";
+  }
+}
+
+/**
+ * The client to save on a job. Undefined leaves the job's client unchanged: staff without the
+ * client.view permission never see the field, so whatever they submit is ignored. A new choice
+ * must be an existing, active client; keeping the current (possibly inactive) client is allowed.
+ */
+async function jobClientId(ctx: StaffContext, requested: string | undefined, current: string | null): Promise<string | null | undefined> {
+  if (!ctx.can(PERMISSIONS.CLIENT_VIEW)) return undefined;
+  const id = requested ?? null;
+  if (id === null || id === current) return id;
+  const client = await prisma.client.findUnique({ where: { id }, select: { isActive: true } });
+  if (!client?.isActive) throw new InvalidJobClientError();
+  return id;
+}
+
 /**
  * Creates a job in DRAFT status together with its case file, atomically.
  * The database assigns the Job ID and Case File ID from sequences.
  */
 export async function createJob(ctx: StaffContext, input: JobInput) {
+  const clientId = await jobClientId(ctx, input.clientId, null);
   return prisma.$transaction(async (tx) => {
     const job = await tx.job.create({
       data: {
         ...jobData(input),
+        clientId: clientId ?? null,
         status: "DRAFT",
         createdById: ctx.user.id,
         caseFile: { create: {} },
@@ -56,8 +81,10 @@ export async function createJob(ctx: StaffContext, input: JobInput) {
 /** Updates job details. Never touches status or the original posted date. */
 export async function updateJob(ctx: StaffContext, jobId: string, input: JobInput) {
   await assertJobAccess(ctx, jobId);
+  const current = await prisma.job.findUniqueOrThrow({ where: { id: jobId }, select: { clientId: true } });
+  const clientId = await jobClientId(ctx, input.clientId, current.clientId);
   return prisma.$transaction(async (tx) => {
-    const job = await tx.job.update({ where: { id: jobId }, data: jobData(input) });
+    const job = await tx.job.update({ where: { id: jobId }, data: { ...jobData(input), clientId } });
     await replaceJobSkills(tx, jobId, input.requiredSkills, input.preferredSkills);
     return job;
   });
