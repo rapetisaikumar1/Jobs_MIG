@@ -12,7 +12,7 @@ import { createClient, deleteClient, setClientActive, updateClient } from "@/mod
 
 /** Client names also show on jobs, case files and applications (filters, details). */
 function revalidateClientPages() {
-  revalidatePath("/admin/clients", "layout");
+  revalidatePath("/admin/sources", "layout");
   revalidatePath("/admin/jobs", "layout");
   revalidatePath("/admin/case-files", "layout");
   revalidatePath("/admin/applications", "layout");
@@ -25,7 +25,7 @@ export async function createClientAction(values: ClientFormValues): Promise<Acti
     if (!parsed.success) return validationFailure(parsed.error);
     const client = await createClient(ctx, parsed.data);
     revalidateClientPages();
-    return ok({ id: client.id }, `Client ${client.name} created.`);
+    return ok({ id: client.id }, `Source ${client.name} created.`);
   });
 }
 
@@ -37,7 +37,7 @@ export async function updateClientAction(clientId: string, values: ClientFormVal
     if (!parsed.success) return validationFailure(parsed.error);
     await updateClient(id, parsed.data);
     revalidateClientPages();
-    return ok(undefined, "Client updated.");
+    return ok(undefined, "Source updated.");
   });
 }
 
@@ -58,6 +58,6 @@ export async function deleteClientAction(values: { clientId: string }): Promise<
     await requireStaffForAction(PERMISSIONS.CLIENT_MANAGE);
     const client = await deleteClient(uuid.parse(values.clientId));
     revalidateClientPages();
-    return ok(undefined, `Client ${client.name} deleted.`);
+    return ok(undefined, `Source ${client.name} deleted.`);
   });
 }

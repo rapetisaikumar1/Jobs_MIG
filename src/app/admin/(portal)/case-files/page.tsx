@@ -50,9 +50,9 @@ export default async function CaseFilesPage({ searchParams }: { searchParams: Pr
           <LiveSearchForm className="flex gap-2">
             <Input name="q" defaultValue={q} placeholder="Search by job title, job ID or case file ID" className="w-full sm:w-80" aria-label="Search case files" />
             {canViewClients && (
-              <Select name="client" defaultValue={client ?? ""} className="w-36 shrink-0 sm:w-44" aria-label="Client">
-                <option value="">All clients</option>
-                <option value="none">No client</option>
+              <Select name="client" defaultValue={client ?? ""} className="w-36 shrink-0 sm:w-44" aria-label="Source">
+                <option value="">All sources</option>
+                <option value="none">No source</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.isActive ? c.name : `${c.name} (inactive)`}</option>)}
               </Select>
             )}
@@ -74,7 +74,7 @@ export default async function CaseFilesPage({ searchParams }: { searchParams: Pr
             <THead>
               <TR>
                 <TH>Name</TH>
-                {canViewClients && <TH className="hidden xl:table-cell">Client</TH>}
+                {canViewClients && <TH className="hidden xl:table-cell">Source</TH>}
                 <TH className="hidden sm:table-cell">Job status</TH>
                 <TH className="hidden text-right sm:table-cell">Items</TH>
                 <TH className="hidden md:table-cell">Last activity</TH>

@@ -32,7 +32,7 @@ export function ClientForm({ clientId, defaultValues }: { clientId?: string; def
       if (!result.ok) {
         setMsg({ ok: false, text: result.error });
         applyServerErrors(result, setError);
-      } else startNavigation(() => router.push(`/admin/clients/${result.data.id}?notice=created`));
+      } else startNavigation(() => router.push(`/admin/sources/${result.data.id}?notice=created`));
       return;
     }
     const result = await updateClientAction(clientId, values);
@@ -40,7 +40,7 @@ export function ClientForm({ clientId, defaultValues }: { clientId?: string; def
       setMsg({ ok: false, text: result.error });
       applyServerErrors(result, setError);
     } else {
-      setMsg({ ok: true, text: result.message ?? "Client updated." });
+      setMsg({ ok: true, text: result.message ?? "Source updated." });
       // The action calls revalidatePath, so its response already re-renders this page.
     }
   });
@@ -49,7 +49,7 @@ export function ClientForm({ clientId, defaultValues }: { clientId?: string; def
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       <FormAlert error={msg && !msg.ok ? msg.text : null} success={msg?.ok ? msg.text : null} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="name" label="Client name" required error={e.name?.message} className="sm:col-span-2">
+        <Field id="name" label="Source name" required error={e.name?.message} className="sm:col-span-2">
           <Input id="name" autoComplete="organization" {...fieldAria("name", e.name?.message)} {...register("name")} />
         </Field>
         <Field id="contactName" label="Contact name" error={e.contactName?.message}>
@@ -69,9 +69,9 @@ export function ClientForm({ clientId, defaultValues }: { clientId?: string; def
         </Field>
       </div>
       <div className="flex justify-end gap-2">
-        {!clientId && <Link href="/admin/clients" className={buttonVariants({ variant: "outline" })}>Cancel</Link>}
+        {!clientId && <Link href="/admin/sources" className={buttonVariants({ variant: "outline" })}>Cancel</Link>}
         <Button type="submit" loading={busy} disabled={busy}>
-          {clientId ? "Save changes" : busy ? "Creating…" : "Create client"}
+          {clientId ? "Save changes" : busy ? "Creating…" : "Create source"}
         </Button>
       </div>
     </form>

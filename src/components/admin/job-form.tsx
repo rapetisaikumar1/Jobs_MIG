@@ -72,9 +72,9 @@ export function JobForm({
           <Input id="title" {...fieldAria("title", e.title?.message)} placeholder="Senior Java Developer" {...register("title")} />
         </Field>
         {clientOptions && (
-          <Field id="clientId" label="Client" hint="Internal only — never shown on the job portal." error={e.clientId?.message}>
+          <Field id="clientId" label="Source" hint="Internal only — never shown on the job portal." error={e.clientId?.message}>
             <Select id="clientId" {...fieldAria("clientId", e.clientId?.message, true)} defaultValue={String(defaultValues.clientId ?? "")} {...register("clientId")}>
-              <option value="">No client</option>
+              <option value="">No source</option>
               {clientOptions.map((c) => <option key={c.id} value={c.id}>{c.isActive ? c.name : `${c.name} (inactive)`}</option>)}
             </Select>
           </Field>

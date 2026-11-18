@@ -54,9 +54,9 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
           {toOptions(JOB_STATUS_LABELS).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select>
         {canViewClients && (
-          <Select name="client" defaultValue={filters.client ?? ""} className="w-44" aria-label="Client">
-            <option value="">All clients</option>
-            <option value="none">No client</option>
+          <Select name="client" defaultValue={filters.client ?? ""} className="w-44" aria-label="Source">
+            <option value="">All sources</option>
+            <option value="none">No source</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.isActive ? c.name : `${c.name} (inactive)`}</option>)}
           </Select>
         )}
@@ -69,7 +69,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
               <TR>
                 <TH className="hidden lg:table-cell">Job ID</TH>
                 <TH>Title</TH>
-                {canViewClients && <TH className="hidden xl:table-cell">Client</TH>}
+                {canViewClients && <TH className="hidden xl:table-cell">Source</TH>}
                 <TH className="hidden lg:table-cell">Location</TH>
                 <TH>Status</TH>
                 <TH className="hidden xl:table-cell">Posted</TH>

@@ -5,7 +5,7 @@ import { AppError } from "@/lib/action-result";
 import type { StaffContext } from "@/modules/access-control/context";
 import type { ClientInput } from "@/modules/clients/schemas";
 
-const DUPLICATE_NAME = "A client with this name already exists.";
+const DUPLICATE_NAME = "A source with this name already exists.";
 
 function isUniqueViolation(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
@@ -33,7 +33,7 @@ async function assertNameAvailable(name: string, exceptId?: string) {
 
 async function loadClient(clientId: string) {
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, name: true } });
-  if (!client) throw new AppError("Client not found.");
+  if (!client) throw new AppError("Source not found.");
   return client;
 }
 
@@ -69,14 +69,14 @@ export async function deleteClient(clientId: string) {
   const client = await loadClient(clientId);
   const jobs = await prisma.job.count({ where: { clientId } });
   if (jobs > 0) {
-    throw new AppError(`${client.name} has ${jobs} job${jobs === 1 ? "" : "s"} and can't be deleted. Deactivate the client instead.`);
+    throw new AppError(`${client.name} has ${jobs} job${jobs === 1 ? "" : "s"} and can't be deleted. Deactivate the source instead.`);
   }
   try {
     await prisma.client.delete({ where: { id: clientId } });
   } catch (error) {
     // A job was linked between the count and the delete (ON DELETE RESTRICT).
     if (error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2003" || error.code === "P2014")) {
-      throw new AppError(`${client.name} has jobs and can't be deleted. Deactivate the client instead.`);
+      throw new AppError(`${client.name} has jobs and can't be deleted. Deactivate the source instead.`);
     }
     throw error;
   }

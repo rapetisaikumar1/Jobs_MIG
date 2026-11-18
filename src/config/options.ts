@@ -69,7 +69,7 @@ export const APPLICATION_STATUS_LABELS: Labels<ApplicationStatus> = {
   APPLIED: "Applied",
   UNDER_REVIEW: "Under Review",
   SHORTLISTED: "Shortlisted",
-  SUBMITTED_TO_CLIENT: "Submitted to Client",
+  SUBMITTED_TO_CLIENT: "Submitted to Source",
   INTERVIEW: "Interview",
   SELECTED: "Selected",
   REJECTED: "Rejected",

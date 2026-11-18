@@ -144,7 +144,6 @@ export async function listApplications(ctx: StaffContext, filters: ApplicationLi
         id: true,
         displayId: true,
         status: true,
-        source: true,
         appliedAt: true,
         candidate: { select: { displayId: true, firstName: true, lastName: true } },
         job: { select: { displayId: true, title: true, caseFile: { select: { displayId: true } }, client: jobClientSelect } },

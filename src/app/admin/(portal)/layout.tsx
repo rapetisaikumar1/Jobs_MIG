@@ -13,7 +13,7 @@ const NAV: (AdminNavItem & { permission?: Permission })[] = [
   { href: "/admin/jobs", label: "Jobs", icon: "jobs", section: "Recruitment" },
   { href: "/admin/case-files", label: "Case files", icon: "caseFiles", section: "Recruitment", permission: P.CASE_FILE_VIEW },
   { href: "/admin/applications", label: "Applications", icon: "applications", section: "Recruitment", permission: P.APPLICATION_VIEW },
-  { href: "/admin/clients", label: "Clients", icon: "clients", section: "Administration", permission: P.CLIENT_VIEW },
+  { href: "/admin/sources", label: "Sources", icon: "clients", section: "Administration", permission: P.CLIENT_VIEW },
   { href: "/admin/users", label: "Users", icon: "users", section: "Administration", permission: P.USER_MANAGE },
   { href: "/admin/roles", label: "Roles", icon: "roles", section: "Administration", permission: P.ROLE_MANAGE },
 ];

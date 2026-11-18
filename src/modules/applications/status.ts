@@ -2,7 +2,7 @@
 import type { ApplicationStatus } from "@prisma/client";
 
 /**
- * What candidates see. Internal steps (e.g. "Submitted to Client") are not exposed
+ * What candidates see. Internal steps (e.g. "Submitted to Source") are not exposed
  * verbatim; candidates only see a coarse, candidate-appropriate status.
  */
 export const CANDIDATE_FACING_STATUS: Record<ApplicationStatus, string> = {

@@ -3,7 +3,7 @@ import { optionalEmail, optionalPhone, optionalText, optionalUrl, requiredText }
 
 /** A client (the company a job is for). Internal only: never shown on the job portal. */
 export const clientSchema = z.object({
-  name: requiredText("Client name", 150),
+  name: requiredText("Source name", 150),
   contactName: optionalText(150),
   contactEmail: optionalEmail,
   contactPhone: optionalPhone,

@@ -29,6 +29,13 @@ const nextConfig: NextConfig = {
   // for it costs nothing noticeable. Also gives every crawler and link preview the full head.
   htmlLimitedBots: /.*/,
   devIndicators: { position: "bottom-right" },
+  // The Clients page is now called Sources; keep old links working.
+  async redirects() {
+    return [
+      { source: "/admin/clients", destination: "/admin/sources", permanent: true },
+      { source: "/admin/clients/:path*", destination: "/admin/sources/:path*", permanent: true },
+    ];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

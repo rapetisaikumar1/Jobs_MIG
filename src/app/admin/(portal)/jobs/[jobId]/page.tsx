@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ApplicationStatusBadge, JobStatusBadge } from "@/components/shared/status-badges";
 import { JobStatusActions } from "@/components/admin/job-status-actions";
 import { CopyJobLink } from "@/components/admin/copy-job-link";
-import { COMPENSATION_TYPE_LABELS, EMPLOYMENT_TYPE_LABELS, SOURCE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
+import { COMPENSATION_TYPE_LABELS, EMPLOYMENT_TYPE_LABELS, WORK_ARRANGEMENT_LABELS } from "@/config/options";
 import { formatJobPlace, formatRegionNames, jobStates } from "@/config/locations";
 import {
   decimalToNumber,
@@ -52,7 +52,7 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
         orderBy: { appliedAt: "desc" },
         take: 100,
         select: {
-          displayId: true, status: true, source: true, appliedAt: true,
+          displayId: true, status: true, appliedAt: true,
           candidate: { select: { displayId: true, firstName: true, lastName: true } },
         },
       })
@@ -163,7 +163,6 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
                           </TD>
                           <TD className="hidden whitespace-nowrap sm:table-cell">
                             {formatDate(a.appliedAt, tz)}
-                            <span className="block text-xs text-muted-foreground">{SOURCE_LABELS[a.source]}</span>
                           </TD>
                           <TD className="whitespace-nowrap"><ApplicationStatusBadge status={a.status} /></TD>
                         </TR>
@@ -198,12 +197,12 @@ export default async function AdminJobPage({ params, searchParams }: { params: P
                 // Internal only; getAdminJob returns the client only to staff who may view clients.
                 ...(ctx.can(PERMISSIONS.CLIENT_VIEW)
                   ? [{
-                    label: "Client",
+                    label: "Source",
                     value: job.client ? (
-                      <Link href={`/admin/clients/${job.client.id}`} className="hover:underline">
+                      <Link href={`/admin/sources/${job.client.id}`} className="hover:underline">
                         {job.client.name}{!job.client.isActive && <span className="text-muted-foreground"> (inactive)</span>}
                       </Link>
-                    ) : "No client",
+                    ) : "No source",
                   }]
                   : []),
                 { label: "Created", value: `${formatDateTime(job.createdAt, tz)} by ${fullName(job.createdBy)}` },
